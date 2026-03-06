@@ -1,1 +1,933 @@
-<html><body>API test</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE ARENA // Betting Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700;900&family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-dark: #0c0a08;
+  --bg-card: #161210;
+  --bg-card2: #1e1914;
+  --bg-card3: #241e18;
+  --gold: #d4a84b;
+  --gold-bright: #f0c75e;
+  --gold-dim: #8b7235;
+  --gold-glow: rgba(212, 168, 75, 0.3);
+  --crimson: #9b2335;
+  --crimson-bright: #cc3344;
+  --crimson-dim: #6b1a28;
+  --bronze: #b8860b;
+  --ivory: #e8dcc8;
+  --ivory-dim: #a89878;
+  --green-win: #4da64d;
+  --green-bright: #66cc66;
+  --red-loss: #cc3344;
+  --text-primary: #e8dcc8;
+  --text-dim: #8a7d6b;
+  --border-gold: rgba(212, 168, 75, 0.25);
+  --border-subtle: rgba(232, 220, 200, 0.08);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg-dark);
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(212, 168, 75, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(155, 35, 53, 0.03) 0%, transparent 60%);
+  color: var(--text-primary);
+  font-family: 'Rajdhani', sans-serif;
+  min-height: 100vh;
+}
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4a84b' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+.gold-line { height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 0 40px; opacity: 0.4; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: 20px 28px; background: linear-gradient(180deg, var(--bg-card), var(--bg-card2)); border: 1px solid var(--border-gold); border-radius: 4px; margin-bottom: 20px; position: relative; }
+.header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent 5%, var(--gold-dim), var(--gold-bright), var(--gold-dim), transparent 95%); }
+.header::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent 10%, var(--gold-dim) 50%, transparent 90%); opacity: 0.3; }
+.logo { display: flex; align-items: center; gap: 14px; }
+.logo-icon { font-size: 28px; }
+.logo-text { font-family: 'Cinzel Decorative', serif; font-size: 22px; font-weight: 900; color: var(--gold-bright); letter-spacing: 6px; text-shadow: 0 0 30px rgba(212, 168, 75, 0.3), 0 2px 4px rgba(0,0,0,0.5); text-transform: uppercase; }
+.logo-sub { font-family: 'Cinzel', serif; font-size: 9px; color: var(--gold-dim); letter-spacing: 4px; text-transform: uppercase; margin-top: -2px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.date-display { font-family: 'Cinzel', serif; font-size: 12px; color: var(--gold-dim); letter-spacing: 1px; }
+.header-btn { background: rgba(212, 168, 75, 0.08); border: 1px solid rgba(212, 168, 75, 0.25); color: var(--gold); padding: 8px 18px; border-radius: 3px; font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; transition: all 0.2s; }
+.header-btn:hover { background: rgba(212, 168, 75, 0.15); box-shadow: 0 0 15px rgba(212, 168, 75, 0.15); }
+.header-btn.danger { background: rgba(155, 35, 53, 0.1); border-color: rgba(155, 35, 53, 0.3); color: var(--crimson-bright); }
+.header-btn.danger:hover { background: rgba(155, 35, 53, 0.2); }
+.player-bar { display: flex; align-items: center; gap: 20px; padding: 16px 28px; background: var(--bg-card); border: 1px solid var(--border-gold); border-radius: 4px; margin-bottom: 20px; }
+.level-badge { font-family: 'Cinzel Decorative', serif; font-size: 13px; font-weight: 700; color: var(--gold-bright); background: linear-gradient(135deg, rgba(212, 168, 75, 0.12), rgba(184, 134, 11, 0.08)); border: 1px solid rgba(212, 168, 75, 0.35); padding: 10px 18px; border-radius: 3px; text-shadow: 0 0 10px rgba(212, 168, 75, 0.3); white-space: nowrap; }
+.xp-section { flex: 1; }
+.xp-label { font-family: 'Cinzel', serif; font-size: 11px; color: var(--text-dim); margin-bottom: 5px; display: flex; justify-content: space-between; letter-spacing: 1px; text-transform: uppercase; }
+.xp-label span { color: var(--gold); font-weight: 700; }
+.xp-bar-outer { height: 12px; background: rgba(0, 0, 0, 0.6); border-radius: 2px; overflow: hidden; border: 1px solid rgba(212, 168, 75, 0.2); }
+.xp-bar-inner { height: 100%; background: linear-gradient(90deg, var(--bronze), var(--gold-bright)); border-radius: 2px; transition: width 0.5s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 10px rgba(212, 168, 75, 0.3); }
+.rank-title { font-family: 'Cinzel Decorative', serif; font-size: 14px; font-weight: 700; color: var(--crimson-bright); text-shadow: 0 0 15px rgba(155, 35, 53, 0.3); white-space: nowrap; letter-spacing: 2px; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: linear-gradient(180deg, var(--bg-card), var(--bg-card2)); border: 1px solid var(--border-gold); border-radius: 4px; padding: 18px 22px; position: relative; overflow: hidden; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.stat-card.bankroll::before { background: linear-gradient(90deg, transparent, var(--green-win), transparent); }
+.stat-card.weekly::before { background: linear-gradient(90deg, transparent, var(--gold-bright), transparent); }
+.stat-card.record::before { background: linear-gradient(90deg, transparent, var(--ivory), transparent); }
+.stat-card.roi::before { background: linear-gradient(90deg, transparent, var(--crimson-bright), transparent); }
+.stat-label { font-family: 'Cinzel', serif; font-size: 10px; text-transform: uppercase; letter-spacing: 3px; color: var(--text-dim); margin-bottom: 8px; }
+.stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 1px; }
+.stat-card.bankroll .stat-value { color: var(--green-bright); }
+.stat-card.weekly .stat-value { color: var(--gold-bright); }
+.stat-card.record .stat-value { color: var(--ivory); }
+.stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }.progress-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.progress-card { background: var(--bg-card); border: 1px solid var(--border-gold); border-radius: 4px; padding: 18px 22px; }
+.progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.progress-label .title { font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+.progress-label .value { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; }
+.progress-bar-outer { height: 22px; background: rgba(0, 0, 0, 0.6); border-radius: 3px; overflow: hidden; border: 1px solid rgba(212, 168, 75, 0.15); position: relative; }
+.progress-bar-inner { height: 100%; border-radius: 3px; transition: width 0.5s ease; position: relative; }
+.progress-bar-inner::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%; background: rgba(255, 255, 255, 0.08); border-radius: 3px 3px 0 0; }
+.hp-bar { background: linear-gradient(90deg, var(--crimson), var(--green-win)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.15); }
+.goal-bar { background: linear-gradient(90deg, var(--bronze), var(--gold-bright)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 0 10px rgba(212, 168, 75, 0.2); }
+.discipline-panel { background: var(--bg-card); border: 1px solid var(--border-gold); border-radius: 4px; padding: 18px 22px; margin-bottom: 20px; }
+.discipline-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.discipline-header h3 { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); text-transform: uppercase; letter-spacing: 3px; }
+.discipline-status { font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; padding: 5px 14px; border-radius: 3px; letter-spacing: 2px; }
+.discipline-status.ok { color: var(--green-win); background: rgba(77, 166, 77, 0.1); border: 1px solid rgba(77, 166, 77, 0.3); }
+.discipline-status.warn { color: var(--gold-bright); background: rgba(212, 168, 75, 0.1); border: 1px solid rgba(212, 168, 75, 0.3); animation: pulse 1.5s infinite; }
+.discipline-status.locked { color: #ff6644; background: rgba(255, 102, 68, 0.1); border: 1px solid rgba(255, 102, 68, 0.3); animation: pulse 1.2s infinite; }
+.discipline-status.overlimit { color: #ff6644; background: rgba(255, 102, 68, 0.15); border: 1px solid rgba(255, 102, 68, 0.4); animation: pulse 1s infinite; }
+.discipline-status.danger { color: var(--crimson-bright); background: rgba(155, 35, 53, 0.2); border: 1px solid rgba(155, 35, 53, 0.5); animation: pulse 0.8s infinite; }
+.discipline-status.critical { color: #ff2222; background: rgba(255, 34, 34, 0.2); border: 1px solid rgba(255, 34, 34, 0.6); animation: pulse 0.5s infinite; text-shadow: 0 0 8px rgba(255, 34, 34, 0.6); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.discipline-meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.meter { text-align: center; }
+.meter-label { font-family: 'Cinzel', serif; font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
+.meter-value { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1px; }
+.meter-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.tabs { display: flex; gap: 2px; margin-bottom: 0; }
+.tab { background: var(--bg-card); border: 1px solid var(--border-subtle); border-bottom: none; border-radius: 4px 4px 0 0; padding: 12px 26px; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; color: var(--text-dim); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: all 0.2s; }
+.tab:hover { color: var(--gold); }
+.tab.active { background: var(--bg-card2); color: var(--gold-bright); border-color: var(--border-gold); text-shadow: 0 0 10px rgba(212, 168, 75, 0.2); }
+.tab-content { background: var(--bg-card2); border: 1px solid var(--border-gold); border-radius: 0 4px 4px 4px; padding: 24px; margin-bottom: 20px; display: none; }
+.tab-content.active { display: block; }
+.form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.form-group { display: flex; flex-direction: column; }
+.form-group.full { grid-column: span 4; }
+.form-group.half { grid-column: span 2; }
+.form-group label { font-family: 'Cinzel', serif; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); margin-bottom: 5px; }
+.form-group input, .form-group select, .form-group textarea { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(212, 168, 75, 0.15); color: var(--text-primary); padding: 10px 14px; border-radius: 3px; font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 600; transition: all 0.2s; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 10px rgba(212, 168, 75, 0.15); }
+.form-group select option { background: var(--bg-dark); color: var(--text-primary); }
+.btn-add-bet { background: linear-gradient(135deg, rgba(212, 168, 75, 0.15), rgba(155, 35, 53, 0.15)); border: 1px solid var(--gold); color: var(--gold-bright); padding: 14px 36px; border-radius: 3px; font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; transition: all 0.2s; }
+.btn-add-bet:hover { background: linear-gradient(135deg, rgba(212, 168, 75, 0.25), rgba(155, 35, 53, 0.25)); box-shadow: 0 0 25px rgba(212, 168, 75, 0.2); transform: translateY(-1px); }
+.btn-add-bet:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+.filter-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.filter-row select, .filter-row input { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(212, 168, 75, 0.12); color: var(--text-primary); padding: 7px 12px; border-radius: 3px; font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 600; }
+.bet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bet-table th { text-align: left; padding: 12px 14px; font-family: 'Cinzel', serif; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); border-bottom: 1px solid var(--border-gold); }
+.bet-table td { padding: 11px 14px; border-bottom: 1px solid var(--border-subtle); font-weight: 600; }
+.bet-table tr:hover td { background: rgba(212, 168, 75, 0.03); }
+.bet-table .status-pending { color: var(--gold-bright); }
+.bet-table .status-win { color: var(--green-bright); }
+.bet-table .status-loss { color: var(--crimson-bright); }
+.bet-table .status-push { color: var(--text-dim); }
+.bet-table .status-void { color: var(--text-dim); font-style: italic; }
+.sport-tag { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-family: 'Cinzel', serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.sport-NBA { background: rgba(255, 136, 0, 0.12); color: #e89040; border: 1px solid rgba(255, 136, 0, 0.25); }
+.sport-NFL { background: rgba(60, 100, 180, 0.12); color: #6090cc; border: 1px solid rgba(60, 100, 180, 0.25); }
+.sport-MLB { background: rgba(180, 50, 60, 0.12); color: #cc5555; border: 1px solid rgba(180, 50, 60, 0.25); }
+.sport-NHL { background: rgba(60, 160, 200, 0.12); color: #60b0cc; border: 1px solid rgba(60, 160, 200, 0.25); }
+.sport-NCAAM { background: rgba(40, 140, 60, 0.12); color: #55aa55; border: 1px solid rgba(40, 140, 60, 0.25); }
+.sport-NCAAF { background: rgba(160, 100, 40, 0.12); color: #bb8844; border: 1px solid rgba(160, 100, 40, 0.25); }
+.sport-UFC { background: rgba(155, 35, 53, 0.15); color: var(--crimson-bright); border: 1px solid rgba(155, 35, 53, 0.3); }
+.sport-Boxing { background: rgba(212, 168, 75, 0.12); color: var(--gold); border: 1px solid rgba(212, 168, 75, 0.25); }
+.sport-Tennis { background: rgba(80, 180, 80, 0.12); color: #66bb66; border: 1px solid rgba(80, 180, 80, 0.25); }
+.sport-Golf { background: rgba(50, 160, 80, 0.12); color: #44aa66; border: 1px solid rgba(50, 160, 80, 0.25); }
+.sport-Soccer { background: rgba(100, 160, 100, 0.12); color: #77bb77; border: 1px solid rgba(100, 160, 100, 0.25); }
+.odds-plus { color: var(--green-bright); }
+.odds-minus { color: var(--crimson-bright); }
+.action-btn { background: none; border: 1px solid; padding: 3px 10px; border-radius: 2px; font-size: 11px; font-family: 'Cinzel', serif; font-weight: 700; cursor: pointer; margin-right: 4px; letter-spacing: 1px; transition: all 0.2s; }
+.action-btn.win { border-color: var(--green-win); color: var(--green-win); }
+.action-btn.win:hover { background: rgba(77, 166, 77, 0.15); }
+.action-btn.loss { border-color: var(--crimson); color: var(--crimson-bright); }
+.action-btn.loss:hover { background: rgba(155, 35, 53, 0.15); }
+.action-btn.push { border-color: var(--text-dim); color: var(--text-dim); }
+.action-btn.push:hover { background: rgba(138, 125, 107, 0.15); }
+.action-btn.void { border-color: var(--text-dim); color: var(--text-dim); }
+.action-btn.void:hover { background: rgba(138, 125, 107, 0.15); }
+.action-btn.del { border-color: var(--crimson); color: var(--crimson-bright); font-size: 10px; }
+.action-btn.del:hover { background: rgba(155, 35, 53, 0.15); }
+.action-btn.edit { border-color: var(--gold); color: var(--gold); font-size: 10px; }
+.action-btn.edit:hover { background: rgba(212, 168, 75, 0.15); }
+.edit-modal { min-width: 320px; max-width: 600px; width: 90vw; max-height: 85vh; overflow-y: auto; }
+.edit-modal .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.edit-modal .form-group.full { grid-column: span 2; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.stats-block { background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-gold); border-radius: 4px; padding: 18px; }
+.stats-block h4 { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(212, 168, 75, 0.15); }
+.stat-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+.stat-row .label { color: var(--text-dim); }
+.stat-row .val { font-weight: 700; }
+.settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.settings-card { background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-gold); border-radius: 4px; padding: 18px; }
+.settings-card h4 { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px; }
+.settings-card .form-group { margin-bottom: 10px; }
+.btn-save-settings { background: rgba(212, 168, 75, 0.1); border: 1px solid var(--gold); color: var(--gold); padding: 12px 28px; border-radius: 3px; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 16px; letter-spacing: 2px; text-transform: uppercase; transition: all 0.2s; }
+.btn-save-settings:hover { background: rgba(212, 168, 75, 0.2); box-shadow: 0 0 15px rgba(212, 168, 75, 0.15); }
+.toast { position: fixed; bottom: 30px; right: 30px; padding: 14px 28px; border-radius: 4px; font-family: 'Cinzel', serif; font-weight: 700; font-size: 13px; letter-spacing: 1px; z-index: 10000; transform: translateY(100px); opacity: 0; transition: all 0.3s ease; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: rgba(77, 166, 77, 0.15); border: 1px solid var(--green-win); color: var(--green-bright); }
+.toast.error { background: rgba(155, 35, 53, 0.15); border: 1px solid var(--crimson); color: var(--crimson-bright); }
+.toast.warn { background: rgba(212, 168, 75, 0.15); border: 1px solid var(--gold); color: var(--gold-bright); }
+.empty-state { text-align: center; padding: 50px; color: var(--text-dim); font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 1px; }
+.empty-state .icon { font-size: 44px; margin-bottom: 12px; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 5000; display: none; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--bg-card); border: 1px solid var(--border-gold); border-radius: 4px; padding: 28px; min-width: 400px; max-width: 500px; }
+.modal h3 { font-family: 'Cinzel Decorative', serif; font-size: 18px; color: var(--crimson-bright); margin-bottom: 16px; letter-spacing: 2px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+@media (max-width: 1000px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .form-grid { grid-template-columns: repeat(2, 1fr); } .form-group.half { grid-column: span 2; } .form-group.full { grid-column: span 2; } .progress-section { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } .settings-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .stats-row { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } .form-group.half, .form-group.full { grid-column: span 1; } .header { flex-direction: column; gap: 12px; } .header-right { flex-wrap: wrap; justify-content: center; } .player-bar { flex-direction: column; text-align: center; } .discipline-meters { grid-template-columns: 1fr; } .logo-text { font-size: 18px; letter-spacing: 4px; } .bet-table thead { display: none; } .bet-table, .bet-table tbody, .bet-table tr, .bet-table td { display: block; width: 100%; } .bet-table tr { background: var(--bg-card2); border: 1px solid var(--border-gold); border-radius: 8px; margin-bottom: 10px; padding: 12px; position: relative; } .bet-table td { padding: 4px 0; border: none; font-size: 13px; text-align: left; } .bet-table td:before { content: attr(data-label); font-family: 'Cinzel', serif; font-weight: 700; color: var(--gold-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px; } .bet-table td:last-child { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle); } .action-btn { font-size: 11px; padding: 4px 10px; } .filter-bar { flex-direction: column; gap: 8px; } .filter-bar select { width: 100%; } .tab { font-size: 12px; padding: 8px 12px; } .stat-card { padding: 12px; } .stat-card .val { font-size: 22px; } }
+.sync-status { display: inline-flex; align-items: center; gap: 6px; font-family: 'Rajdhani', sans-serif; font-size: 12px; color: var(--text-dim); padding: 4px 10px; border-radius: 4px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; }
+.sync-dot.connected { background: var(--green-bright); box-shadow: 0 0 6px var(--green-bright); }
+.sync-dot.disconnected { background: var(--crimson-bright); }
+.sync-dot.syncing { background: var(--gold); animation: pulse 1s infinite; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: rgba(212, 168, 75, 0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(212, 168, 75, 0.4); }
+.hidden { display: none; }
+</style><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">
+      <div>
+        <div class="logo-text">The Arena</div>
+        <div class="logo-sub">Fortune Favors the Bold</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="date-display" id="currentDate"></div>
+      <div class="sync-status" id="syncStatus"><span class="sync-dot disconnected" id="syncDot"></span><span id="syncLabel">Offline</span></div>
+      <button class="header-btn" onclick="exportData()">Export</button>
+      <button class="header-btn" onclick="document.getElementById('importFile').click()">Load</button>
+      <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(event)">
+      <button class="header-btn danger" onclick="confirmReset()">Reset</button>
+    </div>
+  </div>
+  <div class="player-bar">
+    <div class="level-badge" id="levelBadge">I</div>
+    <div class="xp-section">
+      <div class="xp-label">
+        <span>Glory</span>
+        <span id="xpText">0 / 100</span>
+      </div>
+      <div class="xp-bar-outer">
+        <div class="xp-bar-inner" id="xpBar" style="width: 0%"></div>
+      </div>
+    </div>
+    <div class="rank-title" id="rankTitle">NOVICE</div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card bankroll">
+      <div class="stat-label">Treasury</div>
+      <div class="stat-value" id="bankrollVal">$900</div>
+      <div class="stat-sub" id="bankrollSub">Starting: $900</div>
+    </div>
+    <div class="stat-card weekly">
+      <div class="stat-label">Weekly Spoils</div>
+      <div class="stat-value" id="weeklyVal">$0</div>
+      <div class="stat-sub" id="weeklySub">Conquest: $1,000</div>
+    </div>
+    <div class="stat-card record">
+      <div class="stat-label">Battle Record</div>
+      <div class="stat-value" id="recordVal">0-0</div>
+      <div class="stat-sub" id="recordSub">Win Rate: 0%</div>
+    </div>
+    <div class="stat-card roi">
+      <div class="stat-label">Return</div>
+      <div class="stat-value" id="roiVal">0%</div>
+      <div class="stat-sub" id="roiSub">Units: +0.00</div>
+    </div>
+  </div>
+  <div class="progress-section">
+    <div class="progress-card">
+      <div class="progress-label">
+        <div class="title" style="color: var(--green-win)">Treasury Health</div>
+        <div class="value" id="hpVal" style="color: var(--green-win)">$900 / $900</div>
+      </div>
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner hp-bar" id="hpBar" style="width: 100%"></div>
+      </div>
+    </div>
+    <div class="progress-card">
+      <div class="progress-label">
+        <div class="title" style="color: var(--gold-bright)">Weekly Conquest</div>
+        <div class="value" id="goalVal" style="color: var(--gold-bright)">$0 / $1,000</div>
+      </div>
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner goal-bar" id="goalBar" style="width: 0%"></div>
+      </div>
+    </div>
+  </div>
+  <div class="discipline-panel">
+    <div class="discipline-header">
+      <h3>Discipline of the Warrior</h3>
+      <div class="discipline-status ok" id="disciplineStatus">CLEAR</div>
+    </div>
+    <div class="discipline-meters">
+      <div class="meter">
+        <div class="meter-label">Battles Today</div>
+        <div class="meter-value" id="betsToday" style="color: var(--ivory)">0</div>
+        <div class="meter-sub" id="betsTodayMax">Max: 5</div>
+      </div>
+      <div class="meter">
+        <div class="meter-label">Daily Wounds</div>
+        <div class="meter-value" id="dailyLoss" style="color: var(--green-win)">$0</div>
+        <div class="meter-sub" id="dailyLossMax">Limit: $500</div>
+      </div>
+      <div class="meter">
+        <div class="meter-label">Streak</div>
+        <div class="meter-value" id="streakVal" style="color: var(--gold-bright)">0</div>
+        <div class="meter-sub" id="streakLabel">-</div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('addBet')">+ New Wager</div>
+    <div class="tab" onclick="switchTab('betLog')">Battle Log</div>
+    <div class="tab" onclick="switchTab('stats')">War Room</div>
+    <div class="tab" onclick="switchTab('settings')">Settings</div>
+  </div>
+  <div class="tab-content active" id="tab-addBet">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Sport</label>
+        <select id="betSport">
+          <option value="">Select...</option>
+          <option value="NBA">NBA</option>
+          <option value="NFL">NFL</option>
+          <option value="MLB">MLB</option>
+          <option value="NHL">NHL</option>
+          <option value="NCAAM">NCAA Men's Basketball</option>
+          <option value="NCAAF">NCAA Football</option>
+          <option value="UFC">UFC / MMA</option>
+          <option value="Boxing">Boxing</option>
+          <option value="Tennis">Tennis</option>
+          <option value="Golf">Golf</option>
+          <option value="Soccer">Soccer</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Bet Type</label>
+        <select id="betType">
+          <option value="">Select...</option>
+          <option value="Spread">Spread</option>
+          <option value="Moneyline">Moneyline</option>
+          <option value="Total">Total (O/U)</option>
+          <option value="Parlay">Parlay</option>
+          <option value="Prop">Player Prop</option>
+          <option value="Teaser">Teaser</option>
+          <option value="Futures">Futures</option>
+          <option value="Live">Live Bet</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Odds</label>
+        <input type="text" id="betOdds" placeholder="e.g. -110, +250">
+      </div>
+      <div class="form-group">
+        <label>Wager ($)</label>
+        <input type="number" id="betWager" placeholder="250" min="0" step="1">
+      </div>
+      <div class="form-group half">
+        <label>Pick / Selection</label>
+        <input type="text" id="betPick" placeholder="e.g. Lakers -3.5, Over 215.5">
+      </div>
+      <div class="form-group half">
+        <label>Matchup / Event</label>
+        <input type="text" id="betMatchup" placeholder="e.g. Lakers vs Celtics">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="betDate">
+      </div>
+      <div class="form-group">
+        <label>Legs (Parlays)</label>
+        <input type="number" id="betLegs" placeholder="1" min="1" max="25" value="1">
+      </div>
+      <div class="form-group">
+        <label>Confidence (1-10)</label>
+        <input type="number" id="betConfidence" placeholder="5" min="1" max="10" value="5">
+      </div>
+      <div class="form-group">
+        <label>To Win ($)</label>
+        <input type="number" id="betToWin" placeholder="Auto-calc" min="0" step="0.01" readonly style="opacity: 0.5;">
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <textarea id="betNotes" rows="2" placeholder="Strategy, reasoning, intel..."></textarea>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <button class="btn-add-bet" id="addBetBtn" onclick="addBet()">Enter the Arena</button>
+      <span id="addBetMsg" style="font-size: 13px; color: var(--text-dim);"></span>
+    </div>
+  </div>
+  <div class="tab-content" id="tab-betLog">
+    <div class="filter-row">
+      <select id="filterSport" onchange="renderBetLog()">
+        <option value="">All Sports</option>
+        <option value="NBA">NBA</option><option value="NFL">NFL</option><option value="MLB">MLB</option><option value="NHL">NHL</option>
+        <option value="NCAAM">NCAAM</option><option value="NCAAF">NCAAF</option><option value="UFC">UFC</option>
+        <option value="Boxing">Boxing</option><option value="Tennis">Tennis</option><option value="Golf">Golf</option><option value="Soccer">Soccer</option>
+      </select>
+      <select id="filterType" onchange="renderBetLog()">
+        <option value="">All Types</option>
+        <option value="Spread">Spread</option><option value="Moneyline">Moneyline</option><option value="Total">Total</option>
+        <option value="Parlay">Parlay</option><option value="Prop">Prop</option><option value="Teaser">Teaser</option>
+        <option value="Futures">Futures</option><option value="Live">Live</option><option value="Other">Other</option>
+      </select>
+      <select id="filterStatus" onchange="renderBetLog()">
+        <option value="">All Status</option>
+        <option value="Pending">Pending</option><option value="Win">Win</option><option value="Loss">Loss</option>
+        <option value="Push">Push</option><option value="Void">Void</option>
+      </select>
+      <select id="filterWeek" onchange="renderBetLog()"></select>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="bet-table">
+        <thead>
+          <tr>
+            <th>Date</th><th>Sport</th><th>Type</th><th>Pick</th><th>Matchup</th>
+            <th>Odds</th><th>Wager</th><th>To Win</th><th>P/L</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="betLogBody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="emptyLog">
+      <div class="icon">&#9876;</div>
+      No battles fought yet. Enter the arena to begin your conquest.
+    </div>
+  </div>
+  <div class="tab-content" id="tab-stats">
+    <div class="stats-grid" id="statsContent"></div>
+  </div>
+  <div class="tab-content" id="tab-settings">
+    <div class="settings-grid">
+      <div class="settings-card">
+        <h4>Treasury</h4>
+        <div class="form-group"><label>Starting Bankroll ($)</label><input type="number" id="setStartBankroll" value="900"></div>
+        <div class="form-group"><label>Unit Size ($)</label><input type="number" id="setUnitSize" value="250"></div>
+        <div class="form-group"><label>Weekly Conquest ($)</label><input type="number" id="setWeeklyGoal" value="1000"></div>
+      </div>
+      <div class="settings-card">
+        <h4>Discipline</h4>
+        <div class="form-group"><label>Max Bets Per Day</label><input type="number" id="setMaxBets" value="5" min="1" max="50"></div>
+        <div class="form-group"><label>Daily Loss Limit ($)</label><input type="number" id="setDailyLossLimit" value="500" min="0"></div>
+      </div>
+      <div class="settings-card">
+        <h4>Campaign Start</h4>
+        <div class="form-group"><label>Week 1 Start</label><input type="date" id="setStartDate" value="2026-03-04"></div>
+        <div class="form-group"><label style="color: var(--text-dim); font-size: 11px; margin-top: 8px;">Weeks run Wednesday to Tuesday.</label></div>
+      </div>
+    </div>
+    <button class="btn-save-settings" onclick="saveSettings()">Save Settings</button>
+  </div>
+</div>
+<div class="modal-overlay" id="resetModal">
+  <div class="modal">
+    <h3>Confirm Reset</h3>
+    <p style="color: var(--text-dim); margin-bottom: 8px;">This will erase ALL battle data and reset your treasury to starting values. This cannot be undone.</p>
+    <p style="color: var(--crimson-bright); font-weight: 700;">Export your save first if you want to keep your records.</p>
+    <div class="modal-actions">
+      <button class="header-btn" onclick="closeModal()">Cancel</button>
+      <button class="header-btn danger" onclick="resetAll()">Reset Everything</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="editModal" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal edit-modal" onclick="event.stopPropagation()">
+    <h3>Edit Wager</h3>
+    <input type="hidden" id="editBetId">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Sport</label>
+        <select id="editSport">
+          <option value="NBA">NBA</option><option value="NFL">NFL</option><option value="MLB">MLB</option><option value="NHL">NHL</option>
+          <option value="NCAAM">NCAA Men's Basketball</option><option value="NCAAF">NCAA Football</option>
+          <option value="UFC">UFC / MMA</option><option value="Boxing">Boxing</option>
+          <option value="Tennis">Tennis</option><option value="Golf">Golf</option><option value="Soccer">Soccer</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Bet Type</label>
+        <select id="editType">
+          <option value="Spread">Spread</option><option value="Moneyline">Moneyline</option><option value="Total">Total (O/U)</option>
+          <option value="Parlay">Parlay</option><option value="Prop">Player Prop</option><option value="Teaser">Teaser</option>
+          <option value="Futures">Futures</option><option value="Live">Live Bet</option><option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Odds</label>
+        <input type="text" id="editOdds">
+      </div>
+      <div class="form-group">
+        <label>Wager ($)</label>
+        <input type="number" id="editWager" min="0" step="1">
+      </div>
+      <div class="form-group">
+        <label>To Win ($)</label>
+        <input type="number" id="editToWin" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Legs</label>
+        <input type="number" id="editLegs" min="1" max="25">
+      </div>
+      <div class="form-group full">
+        <label>Pick / Selection</label>
+        <input type="text" id="editPick">
+      </div>
+      <div class="form-group full">
+        <label>Matchup / Event</label>
+        <input type="text" id="editMatchup">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="editDate">
+      </div>
+      <div class="form-group">
+        <label>Confidence (1-10)</label>
+        <input type="number" id="editConfidence" min="1" max="10">
+      </div>
+      <div class="form-group full">
+        <label>Notes</label>
+        <textarea id="editNotes" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="header-btn" onclick="closeEditModal()">Cancel</button>
+      <button class="header-btn" style="border-color: var(--gold); color: var(--gold);" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>    <script>
+      // ── STATE ───────────────────────────────────────────────────────────
+      const STATE = {
+        bankroll: 900,
+        startBankroll: 900,
+        unit: 250,
+        weeklyGoal: 1000,
+        startDate: '2026-03-04',
+        bets: [],
+        xp: 0,
+        lifetimeXP: 0,
+        settings: { firebase: false }
+      };
+      const RANKS = [
+        { name:'Conscript',    minXP:0,    color:'#888' },
+        { name:'Tiro',         minXP:50,   color:'#b0b0b0' },
+        { name:'Gladiator',    minXP:150,  color:'#cd7f32' },
+        { name:'Murmillo',     minXP:300,  color:'#c0c0c0' },
+        { name:'Provocator',   minXP:500,  color:'#ffd700' },
+        { name:'Dimachaerus',  minXP:800,  color:'#e5c100' },
+        { name:'Secutor',      minXP:1200, color:'#50C878' },
+        { name:'Hoplomachus',  minXP:1800, color:'#00CED1' },
+        { name:'Retiarius',    minXP:2500, color:'#FF6347' },
+        { name:'Primus Palus', minXP:3500, color:'#FF4500' },
+        { name:'Rudiarius',    minXP:5000, color:'#9400D3' },
+        { name:'Champion of the Arena', minXP:7500, color:'#FFD700' },
+        { name:'Legendary Gladiator',   minXP:10000,color:'#FF0000' },
+        { name:'God of the Colosseum',  minXP:15000,color:'#FFFFFF' }
+      ];
+      let editingIndex = null;
+
+      // ── HELPERS ─────────────────────────────────────────────────────────
+      function calcXP(bet) {
+        const base = 10;
+        const odds = parseFloat(bet.odds);
+        let xp = 0;
+        if (bet.status === 'won') {
+          if (odds > 0) xp = base + Math.round(odds / 25);
+          else xp = base + Math.round(100 / Math.abs(odds) * 10);
+          if (bet.parlayLegs && bet.parlayLegs > 1) xp *= bet.parlayLegs;
+        } else if (bet.status === 'lost') {
+          xp = -Math.round(base * 1.5);
+          if (bet.parlayLegs && bet.parlayLegs > 1) xp = Math.round(xp * 1.2);
+        }
+        return xp;
+      }
+      function getRankInfo(xp) {
+        let rank = RANKS[0];
+        for (const r of RANKS) { if (xp >= r.minXP) rank = r; }
+        const idx = RANKS.indexOf(rank);
+        const next = RANKS[idx + 1] || null;
+        return { rank, next, idx };
+      }
+      function formatMoney(n) {
+        const sign = n < 0 ? '-' : '+';
+        return (n < 0 ? '-' : '') + '$' + Math.abs(n).toFixed(2);
+      }
+      function getWeekNumber(dateStr) {
+        const d = new Date(dateStr);
+        const s = new Date(STATE.startDate);
+        const diff = Math.floor((d - s) / 86400000);
+        return Math.floor(diff / 7) + 1;
+      }
+      function calcToWin(stake, odds) {
+        const o = parseFloat(odds);
+        if (o > 0) return stake * (o / 100);
+        return stake * (100 / Math.abs(o));
+      }
+      function checkDiscipline(stake, odds) {
+        const warnings = [];
+        if (stake > STATE.unit * 2)
+          warnings.push('⚠️ Stake exceeds 2× your unit size!');
+        const o = parseFloat(odds);
+        if (o > 300 || o < -500)
+          warnings.push('⚠️ Extreme odds – tread carefully!');
+        const todayBets = STATE.bets.filter(b =>
+          b.date === new Date().toISOString().slice(0, 10) && b.status === 'pending'
+        );
+        if (todayBets.length >= 5)
+          warnings.push('⚠️ 5+ pending bets today – slow down!');
+        return warnings;
+      }
+      // ── SAVE / LOAD ─────────────────────────────────────────────────────
+      function saveState() {
+        localStorage.setItem('arenaTracker', JSON.stringify(STATE));
+        if (STATE.settings.firebase && window._fbDB) {
+          firebase.database().ref('tracker').set(STATE);
+        }
+      }
+      function loadState() {
+        const raw = localStorage.getItem('arenaTracker');
+        if (raw) {
+          const data = JSON.parse(raw);
+          Object.assign(STATE, data);
+        }
+      }
+
+      // ── BET MANAGEMENT ──────────────────────────────────────────────────
+      function addBet() {
+        const desc = document.getElementById('betDesc').value.trim();
+        const stake = parseFloat(document.getElementById('betStake').value);
+        const odds = document.getElementById('betOdds').value.trim();
+        const type = document.getElementById('betType').value;
+        const legs = parseInt(document.getElementById('parlayLegs').value) || 1;
+        const sport = document.getElementById('betSport').value.trim();
+        const book = document.getElementById('betBook').value.trim();
+        if (!desc || isNaN(stake) || !odds) {
+          showToast('Fill in all required fields!', 'error');
+          return;
+        }
+        const warnings = checkDiscipline(stake, odds);
+        if (warnings.length) showToast(warnings.join('\n'), 'warning');
+        const bet = {
+          id: Date.now(),
+          date: new Date().toISOString().slice(0, 10),
+          desc, stake, odds, type, sport, book,
+          parlayLegs: type === 'parlay' ? legs : 1,
+          toWin: calcToWin(stake, parseFloat(odds)),
+          status: 'pending',
+          xp: 0
+        };
+        if (editingIndex !== null) {
+          STATE.bets[editingIndex] = bet;
+          editingIndex = null;
+          document.getElementById('betFormTitle').textContent = '⚔️ Place Thy Wager';
+          document.getElementById('addBetBtn').textContent = '⚔️ Place Bet';
+          showToast('Bet updated!', 'success');
+        } else {
+          STATE.bets.push(bet);
+          showToast('Bet placed! May fortune favor thee.', 'success');
+        }
+        STATE.bankroll -= stake;
+        saveState();
+        renderAll();
+        clearForm();
+      }
+      function setBetStatus(idx, status) {
+        const bet = STATE.bets[idx];
+        if (!bet || bet.status !== 'pending') return;
+        bet.status = status;
+        if (status === 'won') {
+          const payout = bet.stake + bet.toWin;
+          STATE.bankroll += payout;
+          bet.xp = calcXP(bet);
+          STATE.xp += bet.xp;
+          STATE.lifetimeXP += bet.xp;
+          showToast(`🏆 VICTORY! +$${bet.toWin.toFixed(2)} | +${bet.xp} XP`, 'success');
+        } else if (status === 'lost') {
+          bet.xp = calcXP(bet);
+          STATE.xp += bet.xp;
+          showToast(`💀 Defeat. -$${bet.stake.toFixed(2)} | ${bet.xp} XP`, 'error');
+        } else if (status === 'push') {
+          STATE.bankroll += bet.stake;
+          showToast('🤝 Push – stake returned.', 'warning');
+        }
+        saveState();
+        renderAll();
+      }
+      function deleteBet(idx) {
+        if (!confirm('Delete this bet?')) return;
+        const bet = STATE.bets[idx];
+        if (bet.status === 'pending') STATE.bankroll += bet.stake;
+        STATE.bets.splice(idx, 1);
+        saveState();
+        renderAll();
+        showToast('Bet deleted.', 'warning');
+      }
+      function editBet(idx) {
+        const bet = STATE.bets[idx];
+        document.getElementById('betDesc').value = bet.desc;
+        document.getElementById('betStake').value = bet.stake;
+        document.getElementById('betOdds').value = bet.odds;
+        document.getElementById('betType').value = bet.type;
+        document.getElementById('parlayLegs').value = bet.parlayLegs || 1;
+        document.getElementById('betSport').value = bet.sport || '';
+        document.getElementById('betBook').value = bet.book || '';
+        toggleParlay();
+        editingIndex = idx;
+        document.getElementById('betFormTitle').textContent = '✏️ Edit Wager';
+        document.getElementById('addBetBtn').textContent = '✏️ Update Bet';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      function clearForm() {
+        document.getElementById('betDesc').value = '';
+        document.getElementById('betStake').value = '';
+        document.getElementById('betOdds').value = '';
+        document.getElementById('betType').value = 'straight';
+        document.getElementById('parlayLegs').value = '2';
+        document.getElementById('betSport').value = '';
+        document.getElementById('betBook').value = '';
+        toggleParlay();
+      }
+      function toggleParlay() {
+        const type = document.getElementById('betType').value;
+        document.getElementById('parlayGroup').style.display = type === 'parlay' ? 'block' : 'none';
+      }
+      function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast ' + type + ' show';
+        setTimeout(() => t.classList.remove('show'), 3500);
+      }
+      // ── RENDER ──────────────────────────────────────────────────────────
+      function renderAll() {
+        renderStats();
+        renderRank();
+        renderBetLog();
+      }
+      function renderStats() {
+        const resolved = STATE.bets.filter(b => b.status !== 'pending');
+        const wins = resolved.filter(b => b.status === 'won').length;
+        const losses = resolved.filter(b => b.status === 'lost').length;
+        const pushes = resolved.filter(b => b.status === 'push').length;
+        const pending = STATE.bets.filter(b => b.status === 'pending').length;
+        const totalStaked = resolved.reduce((s, b) => s + b.stake, 0);
+        const totalWon = resolved.filter(b => b.status === 'won').reduce((s, b) => s + b.toWin, 0);
+        const totalLost = resolved.filter(b => b.status === 'lost').reduce((s, b) => s + b.stake, 0);
+        const netProfit = totalWon - totalLost;
+        const roi = totalStaked > 0 ? ((netProfit / totalStaked) * 100).toFixed(1) : '0.0';
+        const weekNum = getWeekNumber(new Date().toISOString().slice(0, 10));
+        const weekBets = STATE.bets.filter(b => getWeekNumber(b.date) === weekNum && b.status !== 'pending');
+        const weekProfit = weekBets.reduce((s, b) => {
+          if (b.status === 'won') return s + b.toWin;
+          if (b.status === 'lost') return s - b.stake;
+          return s;
+        }, 0);
+        const goalPct = Math.min(100, Math.max(0, (weekProfit / STATE.weeklyGoal) * 100));
+
+        document.getElementById('bankrollDisplay').textContent = '$' + STATE.bankroll.toFixed(2);
+        document.getElementById('bankrollDisplay').style.color = STATE.bankroll >= STATE.startBankroll ? '#4CAF50' : '#f44336';
+        document.getElementById('recordDisplay').textContent = `${wins}W - ${losses}L - ${pushes}P`;
+        document.getElementById('pendingDisplay').textContent = pending;
+        document.getElementById('roiDisplay').textContent = roi + '%';
+        document.getElementById('roiDisplay').style.color = netProfit >= 0 ? '#4CAF50' : '#f44336';
+        document.getElementById('netProfitDisplay').textContent = formatMoney(netProfit);
+        document.getElementById('netProfitDisplay').style.color = netProfit >= 0 ? '#4CAF50' : '#f44336';
+        document.getElementById('weekProfitDisplay').textContent = formatMoney(weekProfit);
+        document.getElementById('weekProfitDisplay').style.color = weekProfit >= 0 ? '#4CAF50' : '#f44336';
+        document.getElementById('goalBar').style.width = goalPct + '%';
+        document.getElementById('goalText').textContent =
+          `$${weekProfit.toFixed(0)} / $${STATE.weeklyGoal} (${goalPct.toFixed(0)}%)`;
+      }
+      function renderRank() {
+        const { rank, next, idx } = getRankInfo(STATE.xp);
+        document.getElementById('rankName').textContent = rank.name;
+        document.getElementById('rankName').style.color = rank.color;
+        document.getElementById('xpDisplay').textContent = STATE.xp + ' XP';
+        if (next) {
+          const progress = ((STATE.xp - rank.minXP) / (next.minXP - rank.minXP)) * 100;
+          document.getElementById('xpBar').style.width = progress + '%';
+          document.getElementById('xpText').textContent =
+            `${STATE.xp - rank.minXP} / ${next.minXP - rank.minXP} to ${next.name}`;
+        } else {
+          document.getElementById('xpBar').style.width = '100%';
+          document.getElementById('xpText').textContent = 'MAX RANK ACHIEVED';
+        }
+      }
+      function renderBetLog() {
+        const log = document.getElementById('betLog');
+        if (!STATE.bets.length) {
+          log.innerHTML = '<p style="text-align:center;color:#888;padding:20px;">No bets yet. Enter the arena!</p>';
+          return;
+        }
+        const sorted = [...STATE.bets].reverse();
+        let html = '';
+        sorted.forEach((bet, ri) => {
+          const idx = STATE.bets.length - 1 - ri;
+          const statusClass = bet.status;
+          const statusIcon = bet.status === 'won' ? '🏆' : bet.status === 'lost' ? '💀' : bet.status === 'push' ? '🤝' : '⏳';
+          html += `<div class="bet-card ${statusClass}">
+            <div class="bet-header">
+              <span class="bet-status">${statusIcon} ${bet.status.toUpperCase()}</span>
+              <span class="bet-date">${bet.date}</span>
+            </div>
+            <div class="bet-desc">${bet.desc}</div>
+            <div class="bet-details">
+              <span>💰 $${bet.stake.toFixed(2)}</span>
+              <span>📊 ${bet.odds}</span>
+              <span>🎯 $${bet.toWin.toFixed(2)}</span>
+              ${bet.type !== 'straight' ? `<span>🔗 ${bet.type} (${bet.parlayLegs}L)</span>` : ''}
+              ${bet.sport ? `<span>🏟️ ${bet.sport}</span>` : ''}
+              ${bet.book ? `<span>📖 ${bet.book}</span>` : ''}
+              ${bet.xp ? `<span style="color:${bet.xp >= 0 ? '#4CAF50' : '#f44336'}">${bet.xp > 0 ? '+' : ''}${bet.xp} XP</span>` : ''}
+            </div>
+            <div class="bet-actions">
+              ${bet.status === 'pending' ? `
+                <button class="btn btn-won" onclick="setBetStatus(${idx},'won')">🏆 Won</button>
+                <button class="btn btn-lost" onclick="setBetStatus(${idx},'lost')">💀 Lost</button>
+                <button class="btn btn-push" onclick="setBetStatus(${idx},'push')">🤝 Push</button>
+              ` : ''}
+              <button class="btn btn-edit" onclick="editBet(${idx})">✏️</button>
+              <button class="btn btn-delete" onclick="deleteBet(${idx})">🗑️</button>
+            </div>
+          </div>`;
+        });
+        log.innerHTML = html;
+      }
+      // ── SEED BETS ───────────────────────────────────────────────────────
+      const SEED_BETS = [
+        {id:1,date:'2026-03-04',desc:'Celtics -6.5 vs Hornets',stake:250,odds:'-110',type:'straight',sport:'NBA',book:'DraftKings',parlayLegs:1,toWin:227.27,status:'won',xp:14},
+        {id:2,date:'2026-03-04',desc:'Thunder ML vs Pacers',stake:250,odds:'-180',type:'straight',sport:'NBA',book:'FanDuel',parlayLegs:1,toWin:138.89,status:'won',xp:16},
+        {id:3,date:'2026-03-04',desc:'Knicks/76ers Over 215.5',stake:200,odds:'-105',type:'straight',sport:'NBA',book:'BetMGM',parlayLegs:1,toWin:190.48,status:'lost',xp:-15},
+        {id:4,date:'2026-03-04',desc:'Mavericks +3.5 vs Nuggets',stake:250,odds:'-110',type:'straight',sport:'NBA',book:'Caesars',parlayLegs:1,toWin:227.27,status:'won',xp:14},
+        {id:5,date:'2026-03-04',desc:'Lakers/Warriors Under 228',stake:150,odds:'-110',type:'straight',sport:'NBA',book:'DraftKings',parlayLegs:1,toWin:136.36,status:'lost',xp:-15},
+        {id:6,date:'2026-03-04',desc:'Bucks ML + Celtics ML Parlay',stake:200,odds:'+260',type:'parlay',sport:'NBA',book:'FanDuel',parlayLegs:2,toWin:520.00,status:'won',xp:40},
+        {id:7,date:'2026-03-05',desc:'Rangers ML vs Blue Jackets',stake:250,odds:'-150',type:'straight',sport:'NHL',book:'BetMGM',parlayLegs:1,toWin:166.67,status:'won',xp:17},
+        {id:8,date:'2026-03-05',desc:'Oilers -1.5 vs Sharks',stake:200,odds:'+130',type:'straight',sport:'NHL',book:'DraftKings',parlayLegs:1,toWin:260.00,status:'lost',xp:-15},
+        {id:9,date:'2026-03-05',desc:'Avalanche/Stars Over 6.5',stake:250,odds:'+100',type:'straight',sport:'NHL',book:'FanDuel',parlayLegs:1,toWin:250.00,status:'won',xp:14},
+        {id:10,date:'2026-03-05',desc:'Panthers ML + Lightning ML',stake:150,odds:'+310',type:'parlay',sport:'NHL',book:'Caesars',parlayLegs:2,toWin:465.00,status:'lost',xp:-18},
+        {id:11,date:'2026-03-05',desc:'Bruins -1.5 vs Canadiens',stake:250,odds:'+140',type:'straight',sport:'NHL',book:'BetMGM',parlayLegs:1,toWin:350.00,status:'won',xp:16},
+        {id:12,date:'2026-03-05',desc:'Maple Leafs ML vs Senators',stake:300,odds:'-160',type:'straight',sport:'NHL',book:'DraftKings',parlayLegs:1,toWin:187.50,status:'won',xp:16},
+        {id:13,date:'2026-03-05',desc:'Penguins/Capitals Over 6',stake:200,odds:'-120',type:'straight',sport:'NHL',book:'FanDuel',parlayLegs:1,toWin:166.67,status:'push',xp:0},
+        {id:14,date:'2026-03-06',desc:'Duke -4.5 vs Wake Forest',stake:250,odds:'-110',type:'straight',sport:'NCAAB',book:'Caesars',parlayLegs:1,toWin:227.27,status:'pending',xp:0},
+        {id:15,date:'2026-03-06',desc:'Gonzaga ML vs Saint Marys',stake:250,odds:'-200',type:'straight',sport:'NCAAB',book:'DraftKings',parlayLegs:1,toWin:125.00,status:'pending',xp:0},
+        {id:16,date:'2026-03-06',desc:'Auburn/Tennessee Under 145',stake:200,odds:'-105',type:'straight',sport:'NCAAB',book:'BetMGM',parlayLegs:1,toWin:190.48,status:'pending',xp:0},
+        {id:17,date:'2026-03-06',desc:'Houston ML + Kansas ML',stake:150,odds:'+180',type:'parlay',sport:'NCAAB',book:'FanDuel',parlayLegs:2,toWin:270.00,status:'pending',xp:0},
+        {id:18,date:'2026-03-06',desc:'UConn -7 vs Villanova',stake:250,odds:'-110',type:'straight',sport:'NCAAB',book:'Caesars',parlayLegs:1,toWin:227.27,status:'pending',xp:0}
+      ];
+      function migrateSeedBets() {
+        if (STATE.bets.length === 0) {
+          STATE.bets = JSON.parse(JSON.stringify(SEED_BETS));
+          let xp = 0;
+          let bankroll = STATE.startBankroll;
+          STATE.bets.forEach(b => {
+            bankroll -= b.stake;
+            if (b.status === 'won') {
+              bankroll += b.stake + b.toWin;
+              xp += b.xp;
+            } else if (b.status === 'push') {
+              bankroll += b.stake;
+            }
+          });
+          STATE.bankroll = bankroll;
+          STATE.xp = xp;
+          STATE.lifetimeXP = xp;
+          saveState();
+        }
+      }
+      // ── FIREBASE ────────────────────────────────────────────────────────
+      function initFirebase() {
+        if (typeof firebase === 'undefined') return;
+        try {
+          const config = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "000000000000",
+            appId: "1:000000000000:web:0000000000000000"
+          };
+          if (!firebase.apps.length) firebase.initializeApp(config);
+          window._fbDB = firebase.database();
+          firebase.database().ref('tracker').on('value', snap => {
+            if (snap.val() && STATE.settings.firebase) {
+              Object.assign(STATE, snap.val());
+              renderAll();
+            }
+          });
+        } catch (e) { console.log('Firebase init skipped:', e.message); }
+      }
+
+      // ── EXPORT / IMPORT / RESET ────────────────────────────────────────
+      function exportData() {
+        const blob = new Blob([JSON.stringify(STATE, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `arena-tracker-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Data exported!', 'success');
+      }
+      function importData() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = e => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = ev => {
+            try {
+              const data = JSON.parse(ev.target.result);
+              Object.assign(STATE, data);
+              saveState();
+              renderAll();
+              showToast('Data imported!', 'success');
+            } catch (err) {
+              showToast('Invalid JSON file!', 'error');
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      }
+      function resetAll() {
+        if (!confirm('⚠️ Reset ALL data? This cannot be undone!')) return;
+        localStorage.removeItem('arenaTracker');
+        location.reload();
+      }
+
+      // ── INIT ────────────────────────────────────────────────────────────
+      loadState();
+      migrateSeedBets();
+      renderAll();
+      initFirebase();
+    </script>
+  </body>
+</html>
