@@ -522,412 +522,531 @@ body::after {
   </div>
 </div>
 <div class="toast" id="toast"></div>    <script>
-      // ── STATE ───────────────────────────────────────────────────────────
-      const STATE = {
-        bankroll: 900,
-        startBankroll: 900,
-        unit: 250,
-        weeklyGoal: 1000,
-        startDate: '2026-03-04',
-        bets: [],
-        xp: 0,
-        lifetimeXP: 0,
-        settings: { firebase: false }
-      };
-      const RANKS = [
-        { name:'Conscript',    minXP:0,    color:'#888' },
-        { name:'Tiro',         minXP:50,   color:'#b0b0b0' },
-        { name:'Gladiator',    minXP:150,  color:'#cd7f32' },
-        { name:'Murmillo',     minXP:300,  color:'#c0c0c0' },
-        { name:'Provocator',   minXP:500,  color:'#ffd700' },
-        { name:'Dimachaerus',  minXP:800,  color:'#e5c100' },
-        { name:'Secutor',      minXP:1200, color:'#50C878' },
-        { name:'Hoplomachus',  minXP:1800, color:'#00CED1' },
-        { name:'Retiarius',    minXP:2500, color:'#FF6347' },
-        { name:'Primus Palus', minXP:3500, color:'#FF4500' },
-        { name:'Rudiarius',    minXP:5000, color:'#9400D3' },
-        { name:'Champion of the Arena', minXP:7500, color:'#FFD700' },
-        { name:'Legendary Gladiator',   minXP:10000,color:'#FF0000' },
-        { name:'God of the Colosseum',  minXP:15000,color:'#FFFFFF' }
-      ];
-      let editingIndex = null;
+// ── STATE ──
+const STATE = {
+  bankroll: 900, startBankroll: 900, unit: 250, weeklyGoal: 1000,
+  startDate: '2026-03-04', bets: [], xp: 0, lifetimeXP: 0,
+  maxBets: 5, dailyLossLimit: 500,
+  settings: { firebase: false }
+};
+const RANKS = [
+  {name:'Conscript',minXP:0,color:'#888'},{name:'Tiro',minXP:50,color:'#b0b0b0'},
+  {name:'Gladiator',minXP:150,color:'#cd7f32'},{name:'Murmillo',minXP:300,color:'#c0c0c0'},
+  {name:'Provocator',minXP:500,color:'#ffd700'},{name:'Dimachaerus',minXP:800,color:'#e5c100'},
+  {name:'Secutor',minXP:1200,color:'#50C878'},{name:'Hoplomachus',minXP:1800,color:'#00CED1'},
+  {name:'Retiarius',minXP:2500,color:'#FF6347'},{name:'Primus Palus',minXP:3500,color:'#FF4500'},
+  {name:'Rudiarius',minXP:5000,color:'#9400D3'},{name:'Champion of the Arena',minXP:7500,color:'#FFD700'},
+  {name:'Legendary Gladiator',minXP:10000,color:'#FF0000'},{name:'God of the Colosseum',minXP:15000,color:'#FFFFFF'}
+];
+let editingIndex = null;
 
-      // ── HELPERS ─────────────────────────────────────────────────────────
-      function calcXP(bet) {
-        const base = 10;
-        const odds = parseFloat(bet.odds);
-        let xp = 0;
-        if (bet.status === 'won') {
-          if (odds > 0) xp = base + Math.round(odds / 25);
-          else xp = base + Math.round(100 / Math.abs(odds) * 10);
-          if (bet.parlayLegs && bet.parlayLegs > 1) xp *= bet.parlayLegs;
-        } else if (bet.status === 'lost') {
-          xp = -Math.round(base * 1.5);
-          if (bet.parlayLegs && bet.parlayLegs > 1) xp = Math.round(xp * 1.2);
-        }
-        return xp;
-      }
-      function getRankInfo(xp) {
-        let rank = RANKS[0];
-        for (const r of RANKS) { if (xp >= r.minXP) rank = r; }
-        const idx = RANKS.indexOf(rank);
-        const next = RANKS[idx + 1] || null;
-        return { rank, next, idx };
-      }
-      function formatMoney(n) {
-        const sign = n < 0 ? '-' : '+';
-        return (n < 0 ? '-' : '') + '$' + Math.abs(n).toFixed(2);
-      }
-      function getWeekNumber(dateStr) {
-        const d = new Date(dateStr);
-        const s = new Date(STATE.startDate);
-        const diff = Math.floor((d - s) / 86400000);
-        return Math.floor(diff / 7) + 1;
-      }
-      function calcToWin(stake, odds) {
-        const o = parseFloat(odds);
-        if (o > 0) return stake * (o / 100);
-        return stake * (100 / Math.abs(o));
-      }
-      function checkDiscipline(stake, odds) {
-        const warnings = [];
-        if (stake > STATE.unit * 2)
-          warnings.push('⚠️ Stake exceeds 2× your unit size!');
-        const o = parseFloat(odds);
-        if (o > 300 || o < -500)
-          warnings.push('⚠️ Extreme odds – tread carefully!');
-        const todayBets = STATE.bets.filter(b =>
-          b.date === new Date().toISOString().slice(0, 10) && b.status === 'pending'
-        );
-        if (todayBets.length >= 5)
-          warnings.push('⚠️ 5+ pending bets today – slow down!');
-        return warnings;
-      }
-      // ── SAVE / LOAD ─────────────────────────────────────────────────────
-      function saveState() {
-        localStorage.setItem('arenaTracker', JSON.stringify(STATE));
-        if (STATE.settings.firebase && window._fbDB) {
-          firebase.database().ref('tracker').set(STATE);
-        }
-      }
-      function loadState() {
-        const raw = localStorage.getItem('arenaTracker');
-        if (raw) {
-          const data = JSON.parse(raw);
-          Object.assign(STATE, data);
-        }
-      }
+// ── HELPERS ──
+function calcXP(bet) {
+  const base = 10, odds = parseFloat(bet.odds);
+  let xp = 0;
+  if (bet.status === 'won') {
+    xp = odds > 0 ? base + Math.round(odds/25) : base + Math.round(100/Math.abs(odds)*10);
+    if (bet.parlayLegs > 1) xp *= bet.parlayLegs;
+  } else if (bet.status === 'lost') {
+    xp = -Math.round(base * 1.5);
+    if (bet.parlayLegs > 1) xp = Math.round(xp * 1.2);
+  }
+  return xp;
+}
+function getRankInfo(xp) {
+  let rank = RANKS[0];
+  for (const r of RANKS) { if (xp >= r.minXP) rank = r; }
+  const idx = RANKS.indexOf(rank);
+  const next = RANKS[idx+1] || null;
+  return { rank, next, idx };
+}
+function formatMoney(n) { return (n<0?'-':'')+'$'+Math.abs(n).toFixed(2); }
+function formatMoneySign(n) { return (n>=0?'+':'-')+'$'+Math.abs(n).toFixed(2); }
+function getWeekNumber(dateStr) {
+  const d = new Date(dateStr), s = new Date(STATE.startDate);
+  return Math.floor((d-s)/86400000/7)+1;
+}
+function calcToWin(stake, odds) {
+  const o = parseFloat(odds);
+  return o > 0 ? stake*(o/100) : stake*(100/Math.abs(o));
+}
+function todayStr() { return new Date().toISOString().slice(0,10); }
 
-      // ── BET MANAGEMENT ──────────────────────────────────────────────────
-      function addBet() {
-        const desc = document.getElementById('betDesc').value.trim();
-        const stake = parseFloat(document.getElementById('betStake').value);
-        const odds = document.getElementById('betOdds').value.trim();
-        const type = document.getElementById('betType').value;
-        const legs = parseInt(document.getElementById('parlayLegs').value) || 1;
-        const sport = document.getElementById('betSport').value.trim();
-        const book = document.getElementById('betBook').value.trim();
-        if (!desc || isNaN(stake) || !odds) {
-          showToast('Fill in all required fields!', 'error');
-          return;
-        }
-        const warnings = checkDiscipline(stake, odds);
-        if (warnings.length) showToast(warnings.join('\n'), 'warning');
-        const bet = {
-          id: Date.now(),
-          date: new Date().toISOString().slice(0, 10),
-          desc, stake, odds, type, sport, book,
-          parlayLegs: type === 'parlay' ? legs : 1,
-          toWin: calcToWin(stake, parseFloat(odds)),
-          status: 'pending',
-          xp: 0
-        };
-        if (editingIndex !== null) {
-          STATE.bets[editingIndex] = bet;
-          editingIndex = null;
-          document.getElementById('betFormTitle').textContent = '⚔️ Place Thy Wager';
-          document.getElementById('addBetBtn').textContent = '⚔️ Place Bet';
-          showToast('Bet updated!', 'success');
-        } else {
-          STATE.bets.push(bet);
-          showToast('Bet placed! May fortune favor thee.', 'success');
-        }
-        STATE.bankroll -= stake;
-        saveState();
-        renderAll();
-        clearForm();
-      }
-      function setBetStatus(idx, status) {
-        const bet = STATE.bets[idx];
-        if (!bet || bet.status !== 'pending') return;
-        bet.status = status;
-        if (status === 'won') {
-          const payout = bet.stake + bet.toWin;
-          STATE.bankroll += payout;
-          bet.xp = calcXP(bet);
-          STATE.xp += bet.xp;
-          STATE.lifetimeXP += bet.xp;
-          showToast(`🏆 VICTORY! +$${bet.toWin.toFixed(2)} | +${bet.xp} XP`, 'success');
-        } else if (status === 'lost') {
-          bet.xp = calcXP(bet);
-          STATE.xp += bet.xp;
-          showToast(`💀 Defeat. -$${bet.stake.toFixed(2)} | ${bet.xp} XP`, 'error');
-        } else if (status === 'push') {
-          STATE.bankroll += bet.stake;
-          showToast('🤝 Push – stake returned.', 'warning');
-        }
-        saveState();
-        renderAll();
-      }
-      function deleteBet(idx) {
-        if (!confirm('Delete this bet?')) return;
-        const bet = STATE.bets[idx];
-        if (bet.status === 'pending') STATE.bankroll += bet.stake;
-        STATE.bets.splice(idx, 1);
-        saveState();
-        renderAll();
-        showToast('Bet deleted.', 'warning');
-      }
-      function editBet(idx) {
-        const bet = STATE.bets[idx];
-        document.getElementById('betDesc').value = bet.desc;
-        document.getElementById('betStake').value = bet.stake;
-        document.getElementById('betOdds').value = bet.odds;
-        document.getElementById('betType').value = bet.type;
-        document.getElementById('parlayLegs').value = bet.parlayLegs || 1;
-        document.getElementById('betSport').value = bet.sport || '';
-        document.getElementById('betBook').value = bet.book || '';
-        toggleParlay();
-        editingIndex = idx;
-        document.getElementById('betFormTitle').textContent = '✏️ Edit Wager';
-        document.getElementById('addBetBtn').textContent = '✏️ Update Bet';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      function clearForm() {
-        document.getElementById('betDesc').value = '';
-        document.getElementById('betStake').value = '';
-        document.getElementById('betOdds').value = '';
-        document.getElementById('betType').value = 'straight';
-        document.getElementById('parlayLegs').value = '2';
-        document.getElementById('betSport').value = '';
-        document.getElementById('betBook').value = '';
-        toggleParlay();
-      }
-      function toggleParlay() {
-        const type = document.getElementById('betType').value;
-        document.getElementById('parlayGroup').style.display = type === 'parlay' ? 'block' : 'none';
-      }
-      function showToast(msg, type) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.className = 'toast ' + type + ' show';
-        setTimeout(() => t.classList.remove('show'), 3500);
-      }
-      // ── RENDER ──────────────────────────────────────────────────────────
-      function renderAll() {
-        renderStats();
-        renderRank();
-        renderBetLog();
-      }
-      function renderStats() {
-        const resolved = STATE.bets.filter(b => b.status !== 'pending');
-        const wins = resolved.filter(b => b.status === 'won').length;
-        const losses = resolved.filter(b => b.status === 'lost').length;
-        const pushes = resolved.filter(b => b.status === 'push').length;
-        const pending = STATE.bets.filter(b => b.status === 'pending').length;
-        const totalStaked = resolved.reduce((s, b) => s + b.stake, 0);
-        const totalWon = resolved.filter(b => b.status === 'won').reduce((s, b) => s + b.toWin, 0);
-        const totalLost = resolved.filter(b => b.status === 'lost').reduce((s, b) => s + b.stake, 0);
-        const netProfit = totalWon - totalLost;
-        const roi = totalStaked > 0 ? ((netProfit / totalStaked) * 100).toFixed(1) : '0.0';
-        const weekNum = getWeekNumber(new Date().toISOString().slice(0, 10));
-        const weekBets = STATE.bets.filter(b => getWeekNumber(b.date) === weekNum && b.status !== 'pending');
-        const weekProfit = weekBets.reduce((s, b) => {
-          if (b.status === 'won') return s + b.toWin;
-          if (b.status === 'lost') return s - b.stake;
-          return s;
-        }, 0);
-        const goalPct = Math.min(100, Math.max(0, (weekProfit / STATE.weeklyGoal) * 100));
+// ── SAVE / LOAD ──
+function saveState() {
+  localStorage.setItem('arenaTracker', JSON.stringify(STATE));
+  if (STATE.settings.firebase && window._fbDB) {
+    firebase.database().ref('tracker').set(STATE);
+  }
+}
+function loadState() {
+  const raw = localStorage.getItem('arenaTracker');
+  if (raw) Object.assign(STATE, JSON.parse(raw));
+}
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
 
-        document.getElementById('bankrollDisplay').textContent = '$' + STATE.bankroll.toFixed(2);
-        document.getElementById('bankrollDisplay').style.color = STATE.bankroll >= STATE.startBankroll ? '#4CAF50' : '#f44336';
-        document.getElementById('recordDisplay').textContent = `${wins}W - ${losses}L - ${pushes}P`;
-        document.getElementById('pendingDisplay').textContent = pending;
-        document.getElementById('roiDisplay').textContent = roi + '%';
-        document.getElementById('roiDisplay').style.color = netProfit >= 0 ? '#4CAF50' : '#f44336';
-        document.getElementById('netProfitDisplay').textContent = formatMoney(netProfit);
-        document.getElementById('netProfitDisplay').style.color = netProfit >= 0 ? '#4CAF50' : '#f44336';
-        document.getElementById('weekProfitDisplay').textContent = formatMoney(weekProfit);
-        document.getElementById('weekProfitDisplay').style.color = weekProfit >= 0 ? '#4CAF50' : '#f44336';
-        document.getElementById('goalBar').style.width = goalPct + '%';
-        document.getElementById('goalText').textContent =
-          `$${weekProfit.toFixed(0)} / $${STATE.weeklyGoal} (${goalPct.toFixed(0)}%)`;
-      }
-      function renderRank() {
-        const { rank, next, idx } = getRankInfo(STATE.xp);
-        document.getElementById('rankName').textContent = rank.name;
-        document.getElementById('rankName').style.color = rank.color;
-        document.getElementById('xpDisplay').textContent = STATE.xp + ' XP';
-        if (next) {
-          const progress = ((STATE.xp - rank.minXP) / (next.minXP - rank.minXP)) * 100;
-          document.getElementById('xpBar').style.width = progress + '%';
-          document.getElementById('xpText').textContent =
-            `${STATE.xp - rank.minXP} / ${next.minXP - rank.minXP} to ${next.name}`;
-        } else {
-          document.getElementById('xpBar').style.width = '100%';
-          document.getElementById('xpText').textContent = 'MAX RANK ACHIEVED';
-        }
-      }
-      function renderBetLog() {
-        const log = document.getElementById('betLog');
-        if (!STATE.bets.length) {
-          log.innerHTML = '<p style="text-align:center;color:#888;padding:20px;">No bets yet. Enter the arena!</p>';
-          return;
-        }
-        const sorted = [...STATE.bets].reverse();
-        let html = '';
-        sorted.forEach((bet, ri) => {
-          const idx = STATE.bets.length - 1 - ri;
-          const statusClass = bet.status;
-          const statusIcon = bet.status === 'won' ? '🏆' : bet.status === 'lost' ? '💀' : bet.status === 'push' ? '🤝' : '⏳';
-          html += `<div class="bet-card ${statusClass}">
-            <div class="bet-header">
-              <span class="bet-status">${statusIcon} ${bet.status.toUpperCase()}</span>
-              <span class="bet-date">${bet.date}</span>
-            </div>
-            <div class="bet-desc">${bet.desc}</div>
-            <div class="bet-details">
-              <span>💰 $${bet.stake.toFixed(2)}</span>
-              <span>📊 ${bet.odds}</span>
-              <span>🎯 $${bet.toWin.toFixed(2)}</span>
-              ${bet.type !== 'straight' ? `<span>🔗 ${bet.type} (${bet.parlayLegs}L)</span>` : ''}
-              ${bet.sport ? `<span>🏟️ ${bet.sport}</span>` : ''}
-              ${bet.book ? `<span>📖 ${bet.book}</span>` : ''}
-              ${bet.xp ? `<span style="color:${bet.xp >= 0 ? '#4CAF50' : '#f44336'}">${bet.xp > 0 ? '+' : ''}${bet.xp} XP</span>` : ''}
-            </div>
-            <div class="bet-actions">
-              ${bet.status === 'pending' ? `
-                <button class="btn btn-won" onclick="setBetStatus(${idx},'won')">🏆 Won</button>
-                <button class="btn btn-lost" onclick="setBetStatus(${idx},'lost')">💀 Lost</button>
-                <button class="btn btn-push" onclick="setBetStatus(${idx},'push')">🤝 Push</button>
-              ` : ''}
-              <button class="btn btn-edit" onclick="editBet(${idx})">✏️</button>
-              <button class="btn btn-delete" onclick="deleteBet(${idx})">🗑️</button>
-            </div>
-          </div>`;
-        });
-        log.innerHTML = html;
-      }
-      // ── SEED BETS ───────────────────────────────────────────────────────
-      const SEED_BETS = [
-        {id:1,date:'2026-03-04',desc:'Celtics -6.5 vs Hornets',stake:250,odds:'-110',type:'straight',sport:'NBA',book:'DraftKings',parlayLegs:1,toWin:227.27,status:'won',xp:14},
-        {id:2,date:'2026-03-04',desc:'Thunder ML vs Pacers',stake:250,odds:'-180',type:'straight',sport:'NBA',book:'FanDuel',parlayLegs:1,toWin:138.89,status:'won',xp:16},
-        {id:3,date:'2026-03-04',desc:'Knicks/76ers Over 215.5',stake:200,odds:'-105',type:'straight',sport:'NBA',book:'BetMGM',parlayLegs:1,toWin:190.48,status:'lost',xp:-15},
-        {id:4,date:'2026-03-04',desc:'Mavericks +3.5 vs Nuggets',stake:250,odds:'-110',type:'straight',sport:'NBA',book:'Caesars',parlayLegs:1,toWin:227.27,status:'won',xp:14},
-        {id:5,date:'2026-03-04',desc:'Lakers/Warriors Under 228',stake:150,odds:'-110',type:'straight',sport:'NBA',book:'DraftKings',parlayLegs:1,toWin:136.36,status:'lost',xp:-15},
-        {id:6,date:'2026-03-04',desc:'Bucks ML + Celtics ML Parlay',stake:200,odds:'+260',type:'parlay',sport:'NBA',book:'FanDuel',parlayLegs:2,toWin:520.00,status:'won',xp:40},
-        {id:7,date:'2026-03-05',desc:'Rangers ML vs Blue Jackets',stake:250,odds:'-150',type:'straight',sport:'NHL',book:'BetMGM',parlayLegs:1,toWin:166.67,status:'won',xp:17},
-        {id:8,date:'2026-03-05',desc:'Oilers -1.5 vs Sharks',stake:200,odds:'+130',type:'straight',sport:'NHL',book:'DraftKings',parlayLegs:1,toWin:260.00,status:'lost',xp:-15},
-        {id:9,date:'2026-03-05',desc:'Avalanche/Stars Over 6.5',stake:250,odds:'+100',type:'straight',sport:'NHL',book:'FanDuel',parlayLegs:1,toWin:250.00,status:'won',xp:14},
-        {id:10,date:'2026-03-05',desc:'Panthers ML + Lightning ML',stake:150,odds:'+310',type:'parlay',sport:'NHL',book:'Caesars',parlayLegs:2,toWin:465.00,status:'lost',xp:-18},
-        {id:11,date:'2026-03-05',desc:'Bruins -1.5 vs Canadiens',stake:250,odds:'+140',type:'straight',sport:'NHL',book:'BetMGM',parlayLegs:1,toWin:350.00,status:'won',xp:16},
-        {id:12,date:'2026-03-05',desc:'Maple Leafs ML vs Senators',stake:300,odds:'-160',type:'straight',sport:'NHL',book:'DraftKings',parlayLegs:1,toWin:187.50,status:'won',xp:16},
-        {id:13,date:'2026-03-05',desc:'Penguins/Capitals Over 6',stake:200,odds:'-120',type:'straight',sport:'NHL',book:'FanDuel',parlayLegs:1,toWin:166.67,status:'push',xp:0},
-        {id:14,date:'2026-03-06',desc:'Duke -4.5 vs Wake Forest',stake:250,odds:'-110',type:'straight',sport:'NCAAB',book:'Caesars',parlayLegs:1,toWin:227.27,status:'pending',xp:0},
-        {id:15,date:'2026-03-06',desc:'Gonzaga ML vs Saint Marys',stake:250,odds:'-200',type:'straight',sport:'NCAAB',book:'DraftKings',parlayLegs:1,toWin:125.00,status:'pending',xp:0},
-        {id:16,date:'2026-03-06',desc:'Auburn/Tennessee Under 145',stake:200,odds:'-105',type:'straight',sport:'NCAAB',book:'BetMGM',parlayLegs:1,toWin:190.48,status:'pending',xp:0},
-        {id:17,date:'2026-03-06',desc:'Houston ML + Kansas ML',stake:150,odds:'+180',type:'parlay',sport:'NCAAB',book:'FanDuel',parlayLegs:2,toWin:270.00,status:'pending',xp:0},
-        {id:18,date:'2026-03-06',desc:'UConn -7 vs Villanova',stake:250,odds:'-110',type:'straight',sport:'NCAAB',book:'Caesars',parlayLegs:1,toWin:227.27,status:'pending',xp:0}
-      ];
-      function migrateSeedBets() {
-        if (STATE.bets.length === 0) {
-          STATE.bets = JSON.parse(JSON.stringify(SEED_BETS));
-          let xp = 0;
-          let bankroll = STATE.startBankroll;
-          STATE.bets.forEach(b => {
-            bankroll -= b.stake;
-            if (b.status === 'won') {
-              bankroll += b.stake + b.toWin;
-              xp += b.xp;
-            } else if (b.status === 'push') {
-              bankroll += b.stake;
-            }
-          });
-          STATE.bankroll = bankroll;
-          STATE.xp = xp;
-          STATE.lifetimeXP = xp;
-          saveState();
-        }
-      }
-      // ── FIREBASE ────────────────────────────────────────────────────────
-      function initFirebase() {
-        if (typeof firebase === 'undefined') return;
-        try {
-          const config = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "000000000000",
-            appId: "1:000000000000:web:0000000000000000"
-          };
-          if (!firebase.apps.length) firebase.initializeApp(config);
-          window._fbDB = firebase.database();
-          firebase.database().ref('tracker').on('value', snap => {
-            if (snap.val() && STATE.settings.firebase) {
-              Object.assign(STATE, snap.val());
-              renderAll();
-            }
-          });
-        } catch (e) { console.log('Firebase init skipped:', e.message); }
-      }
+// ── TAB SWITCHING ──
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  // find the tab button that triggers this name
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(name)) t.classList.add('active');
+  });
+  const panel = document.getElementById('tab-'+name);
+  if (panel) panel.classList.add('active');
+  if (name === 'stats') renderWarRoom();
+  if (name === 'betLog') renderBetLog();
+}
 
-      // ── EXPORT / IMPORT / RESET ────────────────────────────────────────
-      function exportData() {
-        const blob = new Blob([JSON.stringify(STATE, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `arena-tracker-${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('Data exported!', 'success');
-      }
-      function importData() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = e => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = ev => {
-            try {
-              const data = JSON.parse(ev.target.result);
-              Object.assign(STATE, data);
-              saveState();
-              renderAll();
-              showToast('Data imported!', 'success');
-            } catch (err) {
-              showToast('Invalid JSON file!', 'error');
-            }
-          };
-          reader.readAsText(file);
-        };
-        input.click();
-      }
-      function resetAll() {
-        if (!confirm('⚠️ Reset ALL data? This cannot be undone!')) return;
-        localStorage.removeItem('arenaTracker');
-        location.reload();
-      }
+// ── DISCIPLINE ──
+function checkDiscipline(stake, odds) {
+  const warnings = [];
+  if (stake > STATE.unit * 2) warnings.push('⚠️ Stake exceeds 2× your unit size!');
+  const o = parseFloat(odds);
+  if (o > 300 || o < -500) warnings.push('⚠️ Extreme odds – tread carefully!');
+  const todayBets = STATE.bets.filter(b => b.date === todayStr() && b.status === 'pending');
+  if (todayBets.length >= STATE.maxBets) warnings.push('⚠️ Max bets per day reached – slow down!');
+  return warnings;
+}
 
-      // ── INIT ────────────────────────────────────────────────────────────
-      loadState();
-      migrateSeedBets();
-      renderAll();
-      initFirebase();
-    </script>
-  </body>
+// ── BET MANAGEMENT ──
+function addBet() {
+  const sport = document.getElementById('betSport').value;
+  const type = document.getElementById('betType').value;
+  const odds = document.getElementById('betOdds').value.trim();
+  const stake = parseFloat(document.getElementById('betWager').value);
+  const pick = document.getElementById('betPick').value.trim();
+  const matchup = document.getElementById('betMatchup').value.trim();
+  const date = document.getElementById('betDate').value || todayStr();
+  const legs = parseInt(document.getElementById('betLegs').value) || 1;
+  const confidence = parseInt(document.getElementById('betConfidence').value) || 5;
+  const notes = document.getElementById('betNotes').value.trim();
+  if (!pick || isNaN(stake) || !odds || !sport || !type) {
+    showToast('Fill in all required fields!', 'error'); return;
+  }
+  const warnings = checkDiscipline(stake, odds);
+  if (warnings.length) showToast(warnings.join('\n'), 'warning');
+  const bet = {
+    id: Date.now(), date, desc: pick, pick, matchup, stake, odds, type, sport,
+    parlayLegs: type === 'Parlay' ? legs : 1,
+    toWin: parseFloat(document.getElementById('betToWin').value) || calcToWin(stake, parseFloat(odds)),
+    confidence, notes, status: 'pending', xp: 0
+  };
+  STATE.bets.push(bet);
+  STATE.bankroll -= stake;
+  showToast('Bet placed! May fortune favor thee.', 'success');
+  saveState(); renderAll(); clearForm();
+}
+function setBetStatus(idx, status) {
+  const bet = STATE.bets[idx];
+  if (!bet || bet.status !== 'pending') return;
+  bet.status = status;
+  if (status === 'won') {
+    STATE.bankroll += bet.stake + bet.toWin;
+    bet.xp = calcXP(bet);
+    STATE.xp += bet.xp; STATE.lifetimeXP += bet.xp;
+    showToast('🏆 VICTORY! +$'+bet.toWin.toFixed(2)+' | +'+bet.xp+' XP', 'success');
+  } else if (status === 'lost') {
+    bet.xp = calcXP(bet);
+    STATE.xp += bet.xp;
+    showToast('💀 Defeat. -$'+bet.stake.toFixed(2)+' | '+bet.xp+' XP', 'error');
+  } else if (status === 'push') {
+    STATE.bankroll += bet.stake;
+    showToast('🤝 Push – stake returned.', 'warning');
+  } else if (status === 'void') {
+    STATE.bankroll += bet.stake;
+    showToast('Void – stake returned.', 'warning');
+  }
+  saveState(); renderAll();
+}
+function deleteBet(idx) {
+  if (!confirm('Delete this bet?')) return;
+  const bet = STATE.bets[idx];
+  if (bet.status === 'pending') STATE.bankroll += bet.stake;
+  STATE.bets.splice(idx, 1);
+  saveState(); renderAll();
+  showToast('Bet deleted.', 'warning');
+}
+function clearForm() {
+  document.getElementById('betSport').value = '';
+  document.getElementById('betType').value = '';
+  document.getElementById('betOdds').value = '';
+  document.getElementById('betWager').value = STATE.unit;
+  document.getElementById('betPick').value = '';
+  document.getElementById('betMatchup').value = '';
+  document.getElementById('betDate').value = '';
+  document.getElementById('betLegs').value = '1';
+  document.getElementById('betConfidence').value = '5';
+  document.getElementById('betToWin').value = '';
+  document.getElementById('betNotes').value = '';
+}
+
+// ── EDIT MODAL ──
+function openEditModal(idx) {
+  editingIndex = idx;
+  const bet = STATE.bets[idx];
+  const m = document.getElementById('editModal');
+  document.getElementById('editBetId').value = idx;
+  document.getElementById('editSport').value = bet.sport || '';
+  document.getElementById('editType').value = bet.type || '';
+  document.getElementById('editOdds').value = bet.odds || '';
+  document.getElementById('editWager').value = bet.stake || '';
+  document.getElementById('editToWin').value = bet.toWin ? bet.toWin.toFixed(2) : '';
+  document.getElementById('editLegs').value = bet.parlayLegs || 1;
+  document.getElementById('editPick').value = bet.pick || bet.desc || '';
+  document.getElementById('editMatchup').value = bet.matchup || '';
+  document.getElementById('editDate').value = bet.date || '';
+  document.getElementById('editConfidence').value = bet.confidence || 5;
+  document.getElementById('editNotes').value = bet.notes || '';
+  m.style.display = 'flex';
+}
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+  editingIndex = null;
+}
+function saveEdit() {
+  const idx = editingIndex;
+  if (idx === null) return;
+  const bet = STATE.bets[idx];
+  const oldStake = bet.stake;
+  bet.sport = document.getElementById('editSport').value;
+  bet.type = document.getElementById('editType').value;
+  bet.odds = document.getElementById('editOdds').value;
+  bet.stake = parseFloat(document.getElementById('editWager').value);
+  bet.toWin = parseFloat(document.getElementById('editToWin').value) || calcToWin(bet.stake, parseFloat(bet.odds));
+  bet.parlayLegs = parseInt(document.getElementById('editLegs').value) || 1;
+  bet.pick = document.getElementById('editPick').value;
+  bet.desc = bet.pick;
+  bet.matchup = document.getElementById('editMatchup').value;
+  bet.date = document.getElementById('editDate').value;
+  bet.confidence = parseInt(document.getElementById('editConfidence').value) || 5;
+  bet.notes = document.getElementById('editNotes').value;
+  if (bet.status === 'pending') STATE.bankroll += oldStake - bet.stake;
+  saveState(); renderAll(); closeEditModal();
+  showToast('Bet updated!', 'success');
+}
+
+// ── SETTINGS ──
+function saveSettings() {
+  STATE.startBankroll = parseFloat(document.getElementById('setStartBankroll').value) || STATE.startBankroll;
+  STATE.unit = parseFloat(document.getElementById('setUnitSize').value) || STATE.unit;
+  STATE.weeklyGoal = parseFloat(document.getElementById('setWeeklyGoal').value) || STATE.weeklyGoal;
+  STATE.maxBets = parseInt(document.getElementById('setMaxBets').value) || STATE.maxBets;
+  STATE.dailyLossLimit = parseFloat(document.getElementById('setDailyLossLimit').value) || STATE.dailyLossLimit;
+  STATE.startDate = document.getElementById('setStartDate').value || STATE.startDate;
+  saveState(); renderAll();
+  showToast('Settings saved!', 'success');
+}
+function loadSettings() {
+  document.getElementById('setStartBankroll').value = STATE.startBankroll;
+  document.getElementById('setUnitSize').value = STATE.unit;
+  document.getElementById('setWeeklyGoal').value = STATE.weeklyGoal;
+  document.getElementById('setMaxBets').value = STATE.maxBets || 5;
+  document.getElementById('setDailyLossLimit').value = STATE.dailyLossLimit || 500;
+  document.getElementById('setStartDate').value = STATE.startDate;
+}
+
+// ── RESET ──
+function confirmReset() { document.getElementById('resetModal').style.display = 'flex'; }
+function closeModal() { document.getElementById('resetModal').style.display = 'none'; }
+function resetAll() {
+  localStorage.removeItem('arenaTracker');
+  closeModal();
+  location.reload();
+}
+
+// ── RENDER ──
+function renderAll() { renderStats(); renderRank(); renderDiscipline(); renderBetLog(); }
+
+function renderStats() {
+  const resolved = STATE.bets.filter(b => b.status !== 'pending');
+  const wins = resolved.filter(b => b.status === 'won').length;
+  const losses = resolved.filter(b => b.status === 'lost').length;
+  const totalStaked = resolved.reduce((s,b) => s+b.stake, 0);
+  const totalWon = resolved.filter(b=>b.status==='won').reduce((s,b)=>s+b.toWin, 0);
+  const totalLost = resolved.filter(b=>b.status==='lost').reduce((s,b)=>s+b.stake, 0);
+  const netProfit = totalWon - totalLost;
+  const roi = totalStaked > 0 ? ((netProfit/totalStaked)*100).toFixed(1) : '0.0';
+  const weekNum = getWeekNumber(todayStr());
+  const weekBets = STATE.bets.filter(b => getWeekNumber(b.date)===weekNum && b.status!=='pending');
+  const weekProfit = weekBets.reduce((s,b) => {
+    if(b.status==='won') return s+b.toWin;
+    if(b.status==='lost') return s-b.stake;
+    return s;
+  }, 0);
+  const hpPct = Math.min(100, Math.max(0, (STATE.bankroll/STATE.startBankroll)*100));
+  const goalPct = STATE.weeklyGoal > 0 ? Math.min(100, Math.max(0, (weekProfit/STATE.weeklyGoal)*100)) : 0;
+
+  document.getElementById('bankrollVal').textContent = '$'+STATE.bankroll.toFixed(2);
+  document.getElementById('bankrollVal').style.color = STATE.bankroll >= STATE.startBankroll ? '#4CAF50' : '#f44336';
+  document.getElementById('bankrollSub').textContent = 'Starting: $'+STATE.startBankroll.toFixed(0);
+  document.getElementById('weeklyVal').textContent = formatMoneySign(weekProfit);
+  document.getElementById('weeklyVal').style.color = weekProfit >= 0 ? '#4CAF50' : '#f44336';
+  document.getElementById('weeklySub').textContent = 'Conquest: $'+STATE.weeklyGoal.toLocaleString();
+  document.getElementById('recordVal').textContent = wins+'W - '+losses+'L';
+  const winRate = (wins+losses) > 0 ? ((wins/(wins+losses))*100).toFixed(0) : '0';
+  document.getElementById('recordSub').textContent = 'Win Rate: '+winRate+'%';
+  document.getElementById('roiVal').textContent = roi+'%';
+  document.getElementById('roiVal').style.color = netProfit >= 0 ? '#4CAF50' : '#f44336';
+  const unitsPL = STATE.unit > 0 ? (netProfit/STATE.unit).toFixed(2) : '0.00';
+  document.getElementById('roiSub').textContent = 'Units: '+(netProfit>=0?'+':'')+unitsPL;
+  document.getElementById('hpVal').textContent = '$'+STATE.bankroll.toFixed(0)+' / $'+STATE.startBankroll;
+  document.getElementById('hpBar').style.width = hpPct+'%';
+  document.getElementById('goalVal').textContent = '$'+weekProfit.toFixed(0)+' / $'+STATE.weeklyGoal.toLocaleString();
+  document.getElementById('goalBar').style.width = goalPct+'%';
+  document.getElementById('currentDate').textContent = todayStr();
+  document.getElementById('betWager').value = document.getElementById('betWager').value || STATE.unit;
+}
+
+function renderRank() {
+  const { rank, next, idx } = getRankInfo(STATE.xp);
+  document.getElementById('rankTitle').textContent = rank.name;
+  document.getElementById('rankTitle').style.color = rank.color;
+  document.getElementById('levelBadge').textContent = idx + 1;
+  if (next) {
+    const progress = ((STATE.xp - rank.minXP) / (next.minXP - rank.minXP)) * 100;
+    document.getElementById('xpBar').style.width = progress + '%';
+    document.getElementById('xpText').textContent = (STATE.xp-rank.minXP)+' / '+(next.minXP-rank.minXP);
+  } else {
+    document.getElementById('xpBar').style.width = '100%';
+    document.getElementById('xpText').textContent = 'MAX RANK';
+  }
+}
+
+function renderDiscipline() {
+  const today = todayStr();
+  const todayBets = STATE.bets.filter(b => b.date === today);
+  const todayResolved = todayBets.filter(b => b.status !== 'pending');
+  const dailyLoss = todayResolved.filter(b=>b.status==='lost').reduce((s,b)=>s+b.stake,0);
+  // Streak calc
+  let streak = 0, streakType = '';
+  for (let i = STATE.bets.length - 1; i >= 0; i--) {
+    const b = STATE.bets[i];
+    if (b.status === 'pending' || b.status === 'push' || b.status === 'void') continue;
+    if (!streakType) streakType = b.status;
+    if (b.status === streakType) streak++;
+    else break;
+  }
+  document.getElementById('betsToday').textContent = todayBets.length;
+  document.getElementById('betsTodayMax').textContent = 'Max: '+(STATE.maxBets||5);
+  document.getElementById('dailyLoss').textContent = '$'+dailyLoss.toFixed(0);
+  document.getElementById('dailyLossMax').textContent = 'Limit: $'+(STATE.dailyLossLimit||500);
+  document.getElementById('streakVal').textContent = streak;
+  document.getElementById('streakLabel').textContent = streakType === 'won' ? '🔥 W' : streakType === 'lost' ? '❄️ L' : '-';
+  // Color warnings
+  const betsEl = document.getElementById('betsToday');
+  betsEl.style.color = todayBets.length >= (STATE.maxBets||5) ? '#f44336' : '#4CAF50';
+  const lossEl = document.getElementById('dailyLoss');
+  lossEl.style.color = dailyLoss >= (STATE.dailyLossLimit||500) ? '#f44336' : '#4CAF50';
+}
+
+function renderBetLog() {
+  const body = document.getElementById('betLogBody');
+  const empty = document.getElementById('emptyLog');
+  if (!body) return;
+  // Get filter values
+  const fSport = document.getElementById('filterSport')?.value || '';
+  const fType = document.getElementById('filterType')?.value || '';
+  const fStatus = document.getElementById('filterStatus')?.value || '';
+  const fWeek = document.getElementById('filterWeek')?.value || '';
+  let filtered = [...STATE.bets];
+  if (fSport) filtered = filtered.filter(b => b.sport === fSport);
+  if (fType) filtered = filtered.filter(b => b.type === fType);
+  if (fStatus) filtered = filtered.filter(b => b.status === fStatus.toLowerCase());
+  if (fWeek) filtered = filtered.filter(b => getWeekNumber(b.date) === parseInt(fWeek));
+  if (!filtered.length) {
+    body.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  const sorted = [...filtered].reverse();
+  let html = '';
+  sorted.forEach(bet => {
+    const idx = STATE.bets.indexOf(bet);
+    const statusIcon = bet.status==='won'?'🏆':bet.status==='lost'?'💀':bet.status==='push'?'🤝':bet.status==='void'?'🚫':'⏳';
+    const statusClass = bet.status;
+    const pl = bet.status==='won'?'+$'+bet.toWin.toFixed(2):bet.status==='lost'?'-$'+bet.stake.toFixed(2):bet.status==='push'?'$0.00':'—';
+    const plColor = bet.status==='won'?'#4CAF50':bet.status==='lost'?'#f44336':'#888';
+    html += '<tr class="bet-row '+statusClass+'">';
+    html += '<td>'+bet.date+'</td>';
+    html += '<td>'+(bet.sport||'')+'</td>';
+    html += '<td>'+(bet.type||'')+'</td>';
+    html += '<td>'+(bet.pick||bet.desc||'')+'</td>';
+    html += '<td>'+(bet.matchup||'')+'</td>';
+    html += '<td>'+bet.odds+'</td>';
+    html += '<td>$'+bet.stake.toFixed(2)+'</td>';
+    html += '<td>$'+bet.toWin.toFixed(2)+'</td>';
+    html += '<td style="color:'+plColor+'">'+pl+'</td>';
+    html += '<td><span class="status-badge '+statusClass+'">'+statusIcon+' '+bet.status.toUpperCase()+'</span></td>';
+    html += '<td class="actions-cell">';
+    if (bet.status === 'pending') {
+      html += '<button class="action-btn win-btn" onclick="setBetStatus('+idx+',\'won\')">✅</button>';
+      html += '<button class="action-btn loss-btn" onclick="setBetStatus('+idx+',\'lost\')">❌</button>';
+      html += '<button class="action-btn push-btn" onclick="setBetStatus('+idx+',\'push\')">🤝</button>';
+    }
+    html += '<button class="action-btn edit-btn" onclick="openEditModal('+idx+')">✏️</button>';
+    html += '<button class="action-btn del-btn" onclick="deleteBet('+idx+')">🗑️</button>';
+    html += '</td></tr>';
+  });
+  body.innerHTML = html;
+}
+
+function renderWarRoom() {
+  const el = document.getElementById('statsContent');
+  if (!el) return;
+  const resolved = STATE.bets.filter(b=>b.status!=='pending');
+  const wins = resolved.filter(b=>b.status==='won');
+  const losses = resolved.filter(b=>b.status==='lost');
+  const totalStaked = resolved.reduce((s,b)=>s+b.stake,0);
+  const totalWon = wins.reduce((s,b)=>s+b.toWin,0);
+  const totalLost = losses.reduce((s,b)=>s+b.stake,0);
+  const net = totalWon - totalLost;
+  const roi = totalStaked>0?((net/totalStaked)*100).toFixed(1):'0.0';
+  // Sport breakdown
+  const sports = {};
+  resolved.forEach(b => {
+    if (!sports[b.sport]) sports[b.sport] = {w:0,l:0,profit:0};
+    if (b.status==='won') { sports[b.sport].w++; sports[b.sport].profit+=b.toWin; }
+    if (b.status==='lost') { sports[b.sport].l++; sports[b.sport].profit-=b.stake; }
+  });
+  let sportHtml = '';
+  for (const [s,d] of Object.entries(sports)) {
+    const c = d.profit>=0?'#4CAF50':'#f44336';
+    sportHtml += '<div class="stat-row"><span>'+s+'</span><span>'+d.w+'W-'+d.l+'L</span><span style="color:'+c+'">'+formatMoneySign(d.profit)+'</span></div>';
+  }
+  el.innerHTML = '<div class="war-room">'
+    +'<h3>📊 Campaign Summary</h3>'
+    +'<div class="stat-row"><span>Total Bets</span><span>'+resolved.length+'</span></div>'
+    +'<div class="stat-row"><span>Record</span><span>'+wins.length+'W - '+losses.length+'L</span></div>'
+    +'<div class="stat-row"><span>Total Staked</span><span>$'+totalStaked.toFixed(2)+'</span></div>'
+    +'<div class="stat-row"><span>Total Won</span><span style="color:#4CAF50">$'+totalWon.toFixed(2)+'</span></div>'
+    +'<div class="stat-row"><span>Total Lost</span><span style="color:#f44336">$'+totalLost.toFixed(2)+'</span></div>'
+    +'<div class="stat-row"><span>Net P/L</span><span style="color:'+(net>=0?'#4CAF50':'#f44336')+'">'+formatMoneySign(net)+'</span></div>'
+    +'<div class="stat-row"><span>ROI</span><span>'+roi+'%</span></div>'
+    +'<h3>🏟️ By Sport</h3>'
+    +sportHtml
+    +'</div>';
+}
+
+// ── EXPORT / IMPORT ──
+function exportData() {
+  const blob = new Blob([JSON.stringify(STATE,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'arena-tracker-'+todayStr()+'.json';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('Data exported!', 'success');
+}
+function importData() {
+  document.getElementById('importFile').click();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const imp = document.getElementById('importFile');
+  if (imp) imp.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        Object.assign(STATE, JSON.parse(ev.target.result));
+        saveState(); renderAll(); loadSettings();
+        showToast('Data imported!', 'success');
+      } catch(err) { showToast('Invalid JSON!', 'error'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+});
+
+// ── FIREBASE ──
+function initFirebase() {
+  if (typeof firebase === 'undefined') return;
+  try {
+    const config = {
+      apiKey:"YOUR_API_KEY",authDomain:"YOUR_PROJECT.firebaseapp.com",
+      databaseURL:"https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId:"YOUR_PROJECT",storageBucket:"YOUR_PROJECT.appspot.com",
+      messagingSenderId:"000000000000",appId:"1:000000000000:web:0000000000000000"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    window._fbDB = firebase.database();
+    firebase.database().ref('tracker').on('value', snap => {
+      if (snap.val()&&STATE.settings.firebase) { Object.assign(STATE,snap.val()); renderAll(); }
+    });
+  } catch(e) { console.log('Firebase init skipped:',e.message); }
+}
+
+// ── SEED BETS ──
+const SEED_BETS = [
+  {id:1,date:'2026-03-04',desc:'Celtics -6.5 vs Hornets',pick:'Celtics -6.5',matchup:'Celtics vs Hornets',stake:250,odds:'-110',type:'Spread',sport:'NBA',book:'DraftKings',parlayLegs:1,toWin:227.27,confidence:7,notes:'',status:'won',xp:14},
+  {id:2,date:'2026-03-04',desc:'Thunder ML vs Pacers',pick:'Thunder ML',matchup:'Thunder vs Pacers',stake:250,odds:'-180',type:'Moneyline',sport:'NBA',book:'FanDuel',parlayLegs:1,toWin:138.89,confidence:8,notes:'',status:'won',xp:16},
+  {id:3,date:'2026-03-04',desc:'Knicks/76ers Over 215.5',pick:'Over 215.5',matchup:'Knicks vs 76ers',stake:200,odds:'-105',type:'Total (O/U)',sport:'NBA',book:'BetMGM',parlayLegs:1,toWin:190.48,confidence:6,notes:'',status:'lost',xp:-15},
+  {id:4,date:'2026-03-04',desc:'Mavericks +3.5 vs Nuggets',pick:'Mavericks +3.5',matchup:'Mavericks vs Nuggets',stake:250,odds:'-110',type:'Spread',sport:'NBA',book:'Caesars',parlayLegs:1,toWin:227.27,confidence:7,notes:'',status:'won',xp:14},
+  {id:5,date:'2026-03-04',desc:'Lakers/Warriors Under 228',pick:'Under 228',matchup:'Lakers vs Warriors',stake:150,odds:'-110',type:'Total (O/U)',sport:'NBA',book:'DraftKings',parlayLegs:1,toWin:136.36,confidence:5,notes:'',status:'lost',xp:-15},
+  {id:6,date:'2026-03-04',desc:'Bucks ML + Celtics ML Parlay',pick:'Bucks ML + Celtics ML',matchup:'Parlay',stake:200,odds:'+260',type:'Parlay',sport:'NBA',book:'FanDuel',parlayLegs:2,toWin:520.00,confidence:6,notes:'',status:'won',xp:40},
+  {id:7,date:'2026-03-05',desc:'Rangers ML vs Blue Jackets',pick:'Rangers ML',matchup:'Rangers vs Blue Jackets',stake:250,odds:'-150',type:'Moneyline',sport:'NHL',book:'BetMGM',parlayLegs:1,toWin:166.67,confidence:7,notes:'',status:'won',xp:17},
+  {id:8,date:'2026-03-05',desc:'Oilers -1.5 vs Sharks',pick:'Oilers -1.5',matchup:'Oilers vs Sharks',stake:200,odds:'+130',type:'Spread',sport:'NHL',book:'DraftKings',parlayLegs:1,toWin:260.00,confidence:5,notes:'',status:'lost',xp:-15},
+  {id:9,date:'2026-03-05',desc:'Avalanche/Stars Over 6.5',pick:'Over 6.5',matchup:'Avalanche vs Stars',stake:250,odds:'+100',type:'Total (O/U)',sport:'NHL',book:'FanDuel',parlayLegs:1,toWin:250.00,confidence:6,notes:'',status:'won',xp:14},
+  {id:10,date:'2026-03-05',desc:'Panthers ML + Lightning ML',pick:'Panthers ML + Lightning ML',matchup:'Parlay',stake:150,odds:'+310',type:'Parlay',sport:'NHL',book:'Caesars',parlayLegs:2,toWin:465.00,confidence:4,notes:'',status:'lost',xp:-18},
+  {id:11,date:'2026-03-05',desc:'Bruins -1.5 vs Canadiens',pick:'Bruins -1.5',matchup:'Bruins vs Canadiens',stake:250,odds:'+140',type:'Spread',sport:'NHL',book:'BetMGM',parlayLegs:1,toWin:350.00,confidence:7,notes:'',status:'won',xp:16},
+  {id:12,date:'2026-03-05',desc:'Maple Leafs ML vs Senators',pick:'Maple Leafs ML',matchup:'Maple Leafs vs Senators',stake:300,odds:'-160',type:'Moneyline',sport:'NHL',book:'DraftKings',parlayLegs:1,toWin:187.50,confidence:8,notes:'',status:'won',xp:16},
+  {id:13,date:'2026-03-05',desc:'Penguins/Capitals Over 6',pick:'Over 6',matchup:'Penguins vs Capitals',stake:200,odds:'-120',type:'Total (O/U)',sport:'NHL',book:'FanDuel',parlayLegs:1,toWin:166.67,confidence:6,notes:'',status:'push',xp:0},
+  {id:14,date:'2026-03-06',desc:'Duke -4.5 vs Wake Forest',pick:'Duke -4.5',matchup:'Duke vs Wake Forest',stake:250,odds:'-110',type:'Spread',sport:'NCAA Men\'s Basketball',book:'Caesars',parlayLegs:1,toWin:227.27,confidence:7,notes:'',status:'pending',xp:0},
+  {id:15,date:'2026-03-06',desc:'Gonzaga ML vs Saint Marys',pick:'Gonzaga ML',matchup:'Gonzaga vs Saint Marys',stake:250,odds:'-200',type:'Moneyline',sport:'NCAA Men\'s Basketball',book:'DraftKings',parlayLegs:1,toWin:125.00,confidence:8,notes:'',status:'pending',xp:0},
+  {id:16,date:'2026-03-06',desc:'Auburn/Tennessee Under 145',pick:'Under 145',matchup:'Auburn vs Tennessee',stake:200,odds:'-105',type:'Total (O/U)',sport:'NCAA Men\'s Basketball',book:'BetMGM',parlayLegs:1,toWin:190.48,confidence:6,notes:'',status:'pending',xp:0},
+  {id:17,date:'2026-03-06',desc:'Houston ML + Kansas ML',pick:'Houston ML + Kansas ML',matchup:'Parlay',stake:150,odds:'+180',type:'Parlay',sport:'NCAA Men\'s Basketball',book:'FanDuel',parlayLegs:2,toWin:270.00,confidence:5,notes:'',status:'pending',xp:0},
+  {id:18,date:'2026-03-06',desc:'UConn -7 vs Villanova',pick:'UConn -7',matchup:'UConn vs Villanova',stake:250,odds:'-110',type:'Spread',sport:'NCAA Men\'s Basketball',book:'Caesars',parlayLegs:1,toWin:227.27,confidence:7,notes:'',status:'pending',xp:0}
+];
+
+function migrateSeedBets() {
+  if (STATE.bets.length === 0) {
+    STATE.bets = JSON.parse(JSON.stringify(SEED_BETS));
+    let xp = 0, bankroll = STATE.startBankroll;
+    STATE.bets.forEach(b => {
+      bankroll -= b.stake;
+      if (b.status==='won') { bankroll += b.stake + b.toWin; xp += b.xp; }
+      else if (b.status==='push') { bankroll += b.stake; }
+    });
+    STATE.bankroll = bankroll;
+    STATE.xp = xp; STATE.lifetimeXP = xp;
+    saveState();
+  }
+}
+
+// ── AUTO-CALC TO WIN ──
+document.addEventListener('DOMContentLoaded', () => {
+  const oddsEl = document.getElementById('betOdds');
+  const wagerEl = document.getElementById('betWager');
+  const toWinEl = document.getElementById('betToWin');
+  function autoCalc() {
+    const odds = parseFloat(oddsEl?.value);
+    const wager = parseFloat(wagerEl?.value);
+    if (!isNaN(odds) && !isNaN(wager) && toWinEl) {
+      toWinEl.value = calcToWin(wager, odds).toFixed(2);
+    }
+  }
+  if (oddsEl) oddsEl.addEventListener('input', autoCalc);
+  if (wagerEl) wagerEl.addEventListener('input', autoCalc);
+  // Filter listeners
+  ['filterSport','filterType','filterStatus','filterWeek'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', renderBetLog);
+  });
+});
+
+// ── INIT ──
+loadState();
+migrateSeedBets();
+renderAll();
+loadSettings();
+initFirebase();
+</script>
+</body>
 </html>
