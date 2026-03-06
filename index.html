@@ -202,7 +202,27 @@ body::after {
 ::-webkit-scrollbar-thumb { background: rgba(212, 168, 75, 0.25); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(212, 168, 75, 0.4); }
 .hidden { display: none; }
-</style><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+
+    /* SCAN BET SLIP STYLES */
+    .scan-zone { border: 2px dashed rgba(212, 168, 75, 0.3); border-radius: 6px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.3s ease; margin-bottom: 20px; background: rgba(212, 168, 75, 0.03); position: relative; }
+    .scan-zone:hover, .scan-zone.dragover { border-color: var(--gold); background: rgba(212, 168, 75, 0.08); box-shadow: 0 0 25px rgba(212, 168, 75, 0.1); }
+    .scan-zone.processing { border-color: var(--gold-bright); animation: pulse 1.5s infinite; }
+    .scan-zone.success { border-color: var(--green-win); background: rgba(77, 166, 77, 0.05); }
+    .scan-zone.error { border-color: var(--crimson-bright); background: rgba(155, 35, 53, 0.05); }
+    .scan-zone .scan-icon { font-size: 36px; margin-bottom: 8px; }
+    .scan-zone .scan-title { font-family: 'Cinzel', serif; font-size: 14px; color: var(--gold); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 6px; }
+    .scan-zone .scan-sub { font-size: 12px; color: var(--text-dim); }
+    .scan-zone input[type="file"] { position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .scan-preview { display: none; margin-bottom: 16px; position: relative; }
+    .scan-preview img { max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid var(--border-gold); }
+    .scan-preview .remove-preview { position: absolute; top: -8px; right: -8px; background: var(--crimson); color: #fff; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+    .scan-status { display: none; padding: 12px 18px; border-radius: 4px; margin-bottom: 16px; font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 1px; }
+    .scan-status.scanning { display: block; background: rgba(212, 168, 75, 0.1); border: 1px solid rgba(212, 168, 75, 0.3); color: var(--gold-bright); }
+    .scan-status.scan-success { display: block; background: rgba(77, 166, 77, 0.1); border: 1px solid rgba(77, 166, 77, 0.3); color: var(--green-bright); }
+    .scan-status.scan-error { display: block; background: rgba(155, 35, 53, 0.1); border: 1px solid rgba(155, 35, 53, 0.3); color: var(--crimson-bright); }
+    .scan-divider { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; color: var(--text-dim); font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+    .scan-divider::before, .scan-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(212, 168, 75, 0.2), transparent); }
+  </style><script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
@@ -308,6 +328,19 @@ body::after {
     <div class="tab" onclick="switchTab('settings')">Settings</div>
   </div>
   <div class="tab-content active" id="tab-addBet">
+    <!-- SCAN BET SLIP -->
+    <div class="scan-zone" id="scanZone">
+      <input type="file" id="scanFileInput" accept="image/*" onchange="handleScanFile(event)">
+      <div class="scan-icon">📸</div>
+      <div class="scan-title">Scan Bet Slip</div>
+      <div class="scan-sub">Drop a screenshot or click to upload — AI will extract your bet details</div>
+    </div>
+    <div class="scan-preview" id="scanPreview">
+      <img id="scanPreviewImg" src="" alt="Bet slip preview">
+      <button class="remove-preview" onclick="clearScan()">✕</button>
+    </div>
+    <div class="scan-status" id="scanStatus"></div>
+    <div class="scan-divider">or enter manually</div>
     <div class="form-grid">
       <div class="form-group">
         <label>Sport</label>
@@ -441,6 +474,13 @@ body::after {
         <div class="form-group"><label>Week 1 Start</label><input type="date" id="setStartDate" value="2026-03-04"></div>
         <div class="form-group"><label style="color: var(--text-dim); font-size: 11px; margin-top: 8px;">Weeks run Wednesday to Tuesday.</label></div>
       </div>
+      <div class="settings-card">
+        <h4>AI Bet Scanner</h4>
+        <div class="form-group"><label>OpenAI API Key</label><input type="password" id="setApiKey" placeholder="sk-..."></div>
+        <div class="form-group"><label>AI Model</label><select id="setAiModel"><option value="gpt-4o">GPT-4o (Recommended)</option><option value="gpt-4o-mini">GPT-4o Mini (Cheaper)</option></select></div>
+        <div class="form-group"><label>Auto-Submit After Scan</label><select id="setAutoSubmit"><option value="no">No - Review First</option><option value="yes">Yes - Auto Submit</option></select></div>
+        <div class="form-group"><label style="color: var(--text-dim); font-size: 11px; margin-top: 8px;">Your key is stored locally and never shared. Get one at platform.openai.com</label></div>
+      </div>
     </div>
     <button class="btn-save-settings" onclick="saveSettings()">Save Settings</button>
   </div>
@@ -527,7 +567,7 @@ const STATE = {
   bankroll: 900, startBankroll: 900, unit: 250, weeklyGoal: 1000,
   startDate: '2026-03-04', bets: [], xp: 0, lifetimeXP: 0,
   maxBets: 5, dailyLossLimit: 500,
-  settings: { firebase: false }
+  settings: { firebase: false, openaiApiKey: '', aiModel: 'gpt-4o', autoSubmitScan: 'no' }
 };
 const RANKS = [
   {name:'Conscript',minXP:0,color:'#888'},{name:'Tiro',minXP:50,color:'#b0b0b0'},
@@ -750,6 +790,9 @@ function loadSettings() {
   document.getElementById('setMaxBets').value = STATE.maxBets || 5;
   document.getElementById('setDailyLossLimit').value = STATE.dailyLossLimit || 500;
   document.getElementById('setStartDate').value = STATE.startDate;
+  document.getElementById('setApiKey').value = STATE.settings.openaiApiKey || '';
+  document.getElementById('setAiModel').value = STATE.settings.aiModel || 'gpt-4o';
+  document.getElementById('setAutoSubmit').value = STATE.settings.autoSubmitScan || 'no';
 }
 
 // ── RESET ──
@@ -1039,6 +1082,143 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', renderBetLog);
   });
+});
+
+
+// ── SCAN BET SLIP (AI Vision) ──
+function handleScanFile(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { showToast("Please upload an image file.", "error"); return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var base64 = e.target.result;
+    document.getElementById("scanPreviewImg").src = base64;
+    document.getElementById("scanPreview").style.display = "block";
+    scanBetSlip(base64);
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearScan() {
+  document.getElementById("scanPreview").style.display = "none";
+  document.getElementById("scanPreviewImg").src = "";
+  document.getElementById("scanFileInput").value = "";
+  var status = document.getElementById("scanStatus");
+  status.style.display = "none";
+  status.className = "scan-status";
+  document.getElementById("scanZone").className = "scan-zone";
+}
+
+async function scanBetSlip(base64Data) {
+  var apiKey = STATE.settings.openaiApiKey;
+  if (!apiKey || apiKey.length < 10) { showToast("Set your OpenAI API key in Settings first!", "error"); return; }
+  var model = STATE.settings.aiModel || "gpt-4o";
+  var statusEl = document.getElementById("scanStatus");
+  var zoneEl = document.getElementById("scanZone");
+  statusEl.textContent = "Scanning bet slip... The Oracle reads your wager...";
+  statusEl.className = "scan-status scanning";
+  zoneEl.className = "scan-zone processing";
+
+  var systemPrompt = "You are a bet slip data extractor. Extract betting information from the screenshot and return ONLY valid JSON (no markdown, no code fences). Return an object with these fields: sport (one of NBA,NFL,MLB,NHL,NCAAM,NCAAF,UFC,Boxing,Tennis,Golf,Soccer), type (one of Spread,Moneyline,Total,Parlay,Prop,Teaser,Futures,Live,Other), odds (string like -110 or +250), wager (number for the stake amount), pick (string like Lakers -3.5 or Over 215.5), matchup (string like Lakers vs Celtics), date (YYYY-MM-DD if visible), legs (number, 1 for singles), notes (any extra info). If multiple bets, return a JSON array. Use null for fields not visible.";
+
+  try {
+    var response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: [
+            { type: "text", text: "Extract all bet information from this bet slip screenshot." },
+            { type: "image_url", image_url: { url: base64Data, detail: "high" } }
+          ]}
+        ],
+        max_tokens: 1500,
+        temperature: 0.1
+      })
+    });
+
+    if (!response.ok) {
+      var errData = await response.json().catch(function() { return {}; });
+      throw new Error(errData.error ? errData.error.message : "API request failed (" + response.status + ")");
+    }
+
+    var data = await response.json();
+    var content = data.choices[0].message.content.trim();
+    var cleaned = content;
+    if (cleaned.charAt(0) === "`") {
+      cleaned = cleaned.replace(/^`{3}(?:json)?\s*/, "").replace(/\s*`{3}$/, "");
+    }
+    var parsed = JSON.parse(cleaned);
+    var bets = Array.isArray(parsed) ? parsed : [parsed];
+
+    if (bets.length === 1) {
+      populateFormFromScan(bets[0]);
+      statusEl.textContent = "Bet slip scanned successfully! Review the fields below.";
+      statusEl.className = "scan-status scan-success";
+      zoneEl.className = "scan-zone success";
+      showToast("Bet slip scanned! Review and submit.", "success");
+      if (STATE.settings.autoSubmitScan === "yes") { setTimeout(function() { addBet(); }, 500); }
+    } else {
+      statusEl.textContent = bets.length + " bets detected! Adding them all...";
+      statusEl.className = "scan-status scan-success";
+      zoneEl.className = "scan-zone success";
+      var added = 0;
+      for (var i = 0; i < bets.length; i++) { populateFormFromScan(bets[i]); addBet(); added++; }
+      showToast(added + " bets scanned and added!", "success");
+    }
+  } catch (err) {
+    console.error("Scan error:", err);
+    statusEl.textContent = "Scan failed: " + err.message;
+    statusEl.className = "scan-status scan-error";
+    zoneEl.className = "scan-zone error";
+    showToast("Scan failed: " + err.message, "error");
+  }
+}
+
+function populateFormFromScan(betData) {
+  if (betData.sport) {
+    var sportMap = { "nba":"NBA","nfl":"NFL","mlb":"MLB","nhl":"NHL","ncaam":"NCAAM","ncaa basketball":"NCAAM","ncaa mens basketball":"NCAAM","college basketball":"NCAAM","ncaab":"NCAAM","cbb":"NCAAM","ncaaf":"NCAAF","college football":"NCAAF","ufc":"UFC","mma":"UFC","boxing":"Boxing","tennis":"Tennis","golf":"Golf","soccer":"Soccer","football":"NFL","basketball":"NBA","baseball":"MLB","hockey":"NHL" };
+    var mapped = sportMap[(betData.sport || "").toLowerCase()] || betData.sport;
+    document.getElementById("betSport").value = mapped;
+  }
+  if (betData.type) {
+    var typeMap = { "spread":"Spread","moneyline":"Moneyline","ml":"Moneyline","total":"Total","over/under":"Total","o/u":"Total","parlay":"Parlay","prop":"Prop","player prop":"Prop","teaser":"Teaser","futures":"Futures","future":"Futures","live":"Live","live bet":"Live","in-game":"Live" };
+    var mappedType = typeMap[(betData.type || "").toLowerCase()] || betData.type;
+    document.getElementById("betType").value = mappedType;
+  }
+  if (betData.odds) document.getElementById("betOdds").value = betData.odds;
+  if (betData.wager) document.getElementById("betWager").value = betData.wager;
+  if (betData.pick) document.getElementById("betPick").value = betData.pick;
+  if (betData.matchup) document.getElementById("betMatchup").value = betData.matchup;
+  if (betData.date) document.getElementById("betDate").value = betData.date;
+  if (betData.legs && betData.legs > 1) {
+    document.getElementById("betLegs").value = betData.legs;
+    if (!betData.type || betData.type.toLowerCase() !== "parlay") document.getElementById("betType").value = "Parlay";
+  }
+  if (betData.notes) document.getElementById("betNotes").value = betData.notes;
+  var oddsVal = parseFloat(document.getElementById("betOdds").value);
+  var wagerVal = parseFloat(document.getElementById("betWager").value);
+  if (!isNaN(oddsVal) && !isNaN(wagerVal)) document.getElementById("betToWin").value = calcToWin(wagerVal, oddsVal).toFixed(2);
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  var zone = document.getElementById("scanZone");
+  if (zone) {
+    zone.addEventListener("dragover", function(e) { e.preventDefault(); zone.classList.add("dragover"); });
+    zone.addEventListener("dragleave", function() { zone.classList.remove("dragover"); });
+    zone.addEventListener("drop", function(e) {
+      e.preventDefault(); zone.classList.remove("dragover");
+      var file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith("image/")) {
+        var input = document.getElementById("scanFileInput");
+        var dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+        handleScanFile({ target: input });
+      }
+    });
+  }
 });
 
 // ── INIT ──
